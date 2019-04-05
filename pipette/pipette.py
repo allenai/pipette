@@ -716,14 +716,14 @@ def to_graphviz(task_or_tasks: Union[Task, Iterable[Task]]) -> str:
     result.append("}")
     return "\n".join(result)
 
-import asciidag.graph
-import asciidag.node
+from .asciidag import graph as adgraph
+from .asciidag import node as adnode
 def to_asciidag(
     task_or_tasks: Union[Task, List[Task]],
     *,
     only_incomplete: bool = False,
     print_commands: bool = False
-) -> List[asciidag.node.Node]:
+) -> List[adnode.Node]:
     if isinstance(task_or_tasks, Task):
         task_or_tasks = [task_or_tasks]
     tasks = task_or_tasks
@@ -731,7 +731,7 @@ def to_asciidag(
         tasks = [t for t in tasks if not t.output_exists()]
 
     output_name_to_node = {}
-    def node_for_task(t: Task) -> asciidag.node.Node:
+    def node_for_task(t: Task) -> adnode.Node:
         nonlocal output_name_to_node
         try:
             return output_name_to_node[t.output_name()]
@@ -747,7 +747,7 @@ def to_asciidag(
                 text = t.output_name()
             if len(tags) > 0:
                 text += f" ({', '.join(tags)})"
-            node = asciidag.node.Node(
+            node = adnode.Node(
                 text,
                 parents=[
                     node_for_task(dep)
@@ -857,7 +857,7 @@ def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> in
         if args.runnable:
             args.commands = True
             args.only_incomplete = True
-        g = asciidag.graph.Graph()
+        g = adgraph.Graph()
         g.show_nodes(
             to_asciidag(
                 tasks,
