@@ -33,10 +33,26 @@ class DillFormat(Format[Any]):
     SUFFIX = ".dill"
 
     def read(self, input: BinaryIO) -> Any:
-        return dill.load(input)
+        first = dill.load(input)
+        try:
+            second = dill.load(input)
+        except EOFError:
+            return first
+
+        yield first
+        yield second
+        while True:
+            try:
+                yield dill.load(input)
+            except EOFError:
+                break
 
     def write(self, input: Any, output: BinaryIO) -> None:
-        dill.dump(input, output)
+        if hasattr(input, "__next__"):
+            for item in input:
+                dill.dump(item, output)
+        else:
+            dill.dump(input, output)
 
 dillFormat = DillFormat()
 
