@@ -2,5 +2,5 @@
 /pipette.egg-info/
 /dist/
 /build/
-/python.iml
+/pipette.iml
 /.pytest_cache/
