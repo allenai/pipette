@@ -1,7 +1,12 @@
 import collections
 
-from .. import pipette
+import pipette
 from typing import *
+
+#
+# In this example, we will predict who wins the 2018-2019 season of the Premier League, given the
+# matches that have already been played.
+#
 
 class Match(NamedTuple):
     home_team: str
@@ -111,14 +116,14 @@ class PredictNextChampion(pipette.Task[str]):
         return results[0][1]
 
 
-if __name__ == "__main__":
-    matches = ExtractMatches(csv_file_path="season-1819.csv")
-    gpt = GoalsPerTeam(matches = matches)
-    wpt = WinsPerTeam(matches = matches)
-    next_champion = PredictNextChampion(goals_per_team=gpt, wins_per_team=wpt, b=0.42)
+_matches = ExtractMatches(csv_file_path="tests/season-1819.csv")
+_gpt = GoalsPerTeam(matches = _matches)
+_wpt = WinsPerTeam(matches = _matches)
+_next_champion = PredictNextChampion(goals_per_team=_gpt, wins_per_team=_wpt, b=0.42)
 
+if __name__ == "__main__":
     import sys
-    pipette.main(sys.argv, next_champion)
+    pipette.main(sys.argv, _next_champion)
 
     # You could also get the results of the task, which will also run all dependent tasks:
     #print(next_champion.results())
@@ -131,3 +136,9 @@ if __name__ == "__main__":
     #print(pipette.to_graphviz(next_champion))
 
 
+from unittest import TestCase
+class TestPremierLeague(TestCase):
+    def test_results(self):
+        print(_next_champion.results())
+        # Do it a second time, to make sure it doesn't recompute.
+        print(_next_champion.results())
