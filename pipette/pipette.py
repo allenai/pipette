@@ -21,15 +21,27 @@ _logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 class Format(Generic[T]):
+    """Base class for file formats.
+
+    To implement, override SUFFIX, read(), and write(). Formats are usually
+    singleton classes, and are instantiated right here in the module."""
+
     SUFFIX = NotImplemented
 
     def read(self, input: BinaryIO) -> T:
+        """Reads input, parses it, and returns it."""
         raise NotImplementedError()
 
     def write(self, input: T, output: BinaryIO) -> None:
+        """Writes the given input out to disk."""
         raise NotImplementedError()
 
 class DillFormat(Format[Any]):
+    """A format that uses dill to serialize arbitrary Python objects.
+
+    This format has special handling for iterable types. It takes care not to
+    read the entire iterable into memory during either reading or writing."""
+
     SUFFIX = ".dill"
 
     def read(self, input: BinaryIO) -> Any:
@@ -58,6 +70,11 @@ dillFormat = DillFormat()
 
 import json
 class JsonFormat(Format[Any]):
+    """A format that serializes Python object with JSON.
+
+    If you are looking to serialize lists of things, you probably want
+    JsonlFormat or JsonlGzFormat."""
+
     SUFFIX = ".json"
 
     def read(self, input: BinaryIO) -> Any:
@@ -71,6 +88,7 @@ class JsonFormat(Format[Any]):
 jsonFormat = JsonFormat()
 
 class JsonlFormat(Format[Iterable[Any]]):
+    """A format that serializes lists of Python objects to JSON, one line per item."""
     SUFFIX = ".jsonl"
 
     def read(self, input: BinaryIO) -> Iterable[Any]:
@@ -88,6 +106,7 @@ jsonlFormat = JsonlFormat()
 
 import gzip
 class JsonlGzFormat(Format[Iterable[Any]]):
+    """A format that serializes lists of Python objects to JSON, one line per item, and compresses the file."""
     SUFFIX = ".jsonl.gz"
 
     def read(self, input: BinaryIO) -> Iterable[Any]:
@@ -107,28 +126,42 @@ jsonlGzFormat = JsonlGzFormat()
 
 
 def random_string(length: int = 16) -> str:
+    """Returns a random string of readable characters."""
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
 
 
 class Store(object):
+    """A key/value store that Pipette uses to store the results from Tasks."""
+
     def exists(self, name: str) -> bool:
+        """Returns True if the given result already exists in the store."""
         raise NotImplementedError()
 
     def locked(self, name: str) -> bool:
+        """Returns True if the given result is locked in the store.
+
+        Results get locked when a task starts working on them, but is not yet
+        complete. This prevents multiple processes from working on the same task
+        at the same time, and overwriting each other's results."""
         raise NotImplementedError()
 
     def read(self, name: str, format: Format = dillFormat) -> Any:
+        """Reads a result from the store."""
         raise NotImplementedError()
 
     def write(self, name: str, content: Any, format: Format = dillFormat) -> None:
+        """Writes a result to the store.
+
+        While the writing is going on, this locks the results it is writing to,
+        so that no other task writes to the same result at the same time."""
         raise NotImplementedError()
 
     def url_for_name(self, name: str) -> str:
+        """Returns a copy-and-paste worthy URL for the result with the given name."""
         raise NotImplementedError()
 
     def id(self) -> str:
-        """Every store has an id. It is just a meaningless, unique string. This is so we can
-        recognize when the store changes."""
+        """Every store has an id. It is unique string that helps recognize when the store changes."""
         raise NotImplementedError()
 
     _weird_patterns = {"//", "./", "/.", "\\", ".."}
