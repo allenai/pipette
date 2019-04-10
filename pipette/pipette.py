@@ -1082,3 +1082,22 @@ def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> in
 if __name__ == "__main__":
     import sys
     sys.exit(main(sys.argv))
+
+# This is specified explicitly so that the order in the docs makes sense.
+__all__ = [
+    "Task",
+    "create_from_serialized_task_config",
+    "to_graphviz",
+    "to_commands",
+    "runnable_commands",
+    "main",
+    "Store",
+    "LocalStore",
+    "BeakerStore",
+    "Format",
+    "DillFormat",
+    "JsonFormat",
+    "JsonlFormat",
+    "JsonlGzFormat",
+    "random_string"
+]
