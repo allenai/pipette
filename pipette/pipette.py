@@ -166,6 +166,7 @@ class Store(object):
 
     _weird_patterns = {"//", "./", "/.", "\\", ".."}
     def _name_check(self, name: str) -> None:
+        """Check whether a name makes sense as a name for a result."""
         if name.startswith("/"):
             raise ValueError(f"Name '{name}' can't start with a slash.")
         if name.endswith("/"):
@@ -177,7 +178,19 @@ class Store(object):
 
 from pathlib import Path
 class LocalStore(Store):
+    """A store that stores the files in a local filesystem.
+
+    This is particularly effective when the local filesystem is NFS-mounted and
+    available from multiple machines.
+
+    It is safe, though useless, to create multiple instances of LocalStore that
+    all use the same directory."""
+
     def __init__(self, base_path: Union[str, Path]):
+        """Creates the store.
+
+        base_path is the root location in the file system where the store will
+                  live."""
         if isinstance(base_path, str):
             base_path = Path(base_path)
         self.base_path = base_path
@@ -198,8 +211,8 @@ class LocalStore(Store):
 
     def read(self, name: str, format: Format = dillFormat) -> Any:
         self._name_check(name)
-        # This leaks the file until the file object gets garbage collected. A worthwhile tradeoff
-        # to get streaming reads to work.
+        # This leaks the file until the file object gets garbage collected. A
+        # worthwhile tradeoff to get streaming reads to work.
         path = self.base_path / name
         _logger.info("Reading input from %s", path)
         return format.read(path.open("br"))
@@ -232,6 +245,20 @@ class LocalStore(Store):
 
 import subprocess
 class BeakerStore(Store):
+    """A store that stores results in Beaker.
+
+    For this to work, the beaker command line tool needs to be on the path.
+
+    Optionally, this store supports a local cache. Using this cache is highly
+    recommended, because it makes locking much more reliable. It is particularly
+    effective to put the cache on an NFS-mounted drive, so multiple machines
+    can share it.
+
+    Do not use the same directory both as a local cache for BeakerStore, and as
+    the storage location for LocalStore. I don't know what happens when you do
+    that.
+    """
+
     def __init__(self, local_cache_path: Union[None, str, Path] = None):
         if isinstance(local_cache_path, str):
             local_cache_path = Path(local_cache_path)
@@ -240,6 +267,8 @@ class BeakerStore(Store):
             self.local_cache_path.mkdir(parents=True, exist_ok=True)
 
     def id(self) -> str:
+        """There is only one beaker, so this always returns the same id."""
+        # TODO: That said, it would be great if we could distinguish between beaker-internal, and beaker-external.
         return "beaker"
 
     class BeakerDataset(NamedTuple):
@@ -281,7 +310,7 @@ class BeakerStore(Store):
 
     @classmethod
     def _delete_dataset(cls, name: str):
-        """You can't actually delete datasets in Beaker, but you can rename them out of the way."""
+        # You can't actually delete datasets in Beaker, but you can rename them out of the way.
         subprocess.run(
             ["beaker", "dataset", "rename", name, f"deleted-{name}-{random_string()}"],
             stdout=subprocess.DEVNULL,
@@ -444,6 +473,19 @@ _is_serialized_task_tuple = _is_named_tuple_fn(SerializedTaskTuple)
 _version_tag_re = re.compile("""^[a-zA-Z0-9]+$""")
 O = TypeVar('O')
 class Task(Generic[O]):
+    """The base class for pipette Tasks.
+
+    When you are writing your own tasks, at a minimum, override VERSION_TAG and
+    INPUTS. You usually also want to set DEFAULTS, and an OUTPUT_FORMAT.
+
+    VERSION_TAG specifies the version of the task. Bump it when the output
+    changes in a significant way. It will cause the task itself, and all
+    downstream tasks to be re-run. By convention, the tags look like "001foo",
+    with a number up front, and a micro-description afterwards.
+
+    
+    """
+
     VERSION_TAG: str = NotImplemented
     INPUTS: Dict[str, Any] = {}
     DEFAULTS: Dict[str, Any] = {}
