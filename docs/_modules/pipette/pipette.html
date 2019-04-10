@@ -1,0 +1,1290 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>pipette.pipette &mdash; Pipette  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> Pipette
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../pipette.html">pipette package</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Pipette</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>pipette.pipette</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for pipette.pipette</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Pipette speeds up your experiments by figuring out which parts of your workflow have to be re-run,</span>
+<span class="sd">and which parts can be read from earlier results. It also organizes the results of the tasks in the</span>
+<span class="sd">workflow, so that you can run different steps on different machines, locally, or in the cloud. You</span>
+<span class="sd">no longer need to track files in spreadsheets, and invent clever naming schemes to keep everything</span>
+<span class="sd">straight.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">atexit</span>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">mmh3</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">string</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">import</span> <span class="nn">zlib</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">BinaryIO</span>     <span class="c1"># Not sure why this is necessary.</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">dill</span>
+<span class="kn">import</span> <span class="nn">typeguard</span>
+
+<span class="n">_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;T&#39;</span><span class="p">)</span>
+<div class="viewcode-block" id="Format"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Format">[docs]</a><span class="k">class</span> <span class="nc">Format</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">T</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;Base class for file formats.</span>
+
+<span class="sd">    To implement, override SUFFIX, read(), and write(). Formats are usually</span>
+<span class="sd">    singleton classes, and are instantiated right here in the module.&quot;&quot;&quot;</span>
+
+    <span class="n">SUFFIX</span> <span class="o">=</span> <span class="bp">NotImplemented</span>
+
+<div class="viewcode-block" id="Format.read"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Format.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Reads input, parses it, and returns it.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Format.write"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Format.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Writes the given input out to disk.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+<div class="viewcode-block" id="DillFormat"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.DillFormat">[docs]</a><span class="k">class</span> <span class="nc">DillFormat</span><span class="p">(</span><span class="n">Format</span><span class="p">[</span><span class="n">Any</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;A format that uses dill to serialize arbitrary Python objects.</span>
+
+<span class="sd">    This format has special handling for iterable types. It takes care not to</span>
+<span class="sd">    read the entire iterable into memory during either reading or writing.</span>
+
+<span class="sd">    To use this format, simply refer to ``pipette.dillFormat``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">SUFFIX</span> <span class="o">=</span> <span class="s2">&quot;.dill&quot;</span>
+
+<div class="viewcode-block" id="DillFormat.read"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.DillFormat.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="n">first</span> <span class="o">=</span> <span class="n">dill</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">second</span> <span class="o">=</span> <span class="n">dill</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">EOFError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">first</span>
+
+        <span class="k">yield</span> <span class="n">first</span>
+        <span class="k">yield</span> <span class="n">second</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">dill</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">EOFError</span><span class="p">:</span>
+                <span class="k">break</span></div>
+
+<div class="viewcode-block" id="DillFormat.write"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.DillFormat.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="s2">&quot;__next__&quot;</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">input</span><span class="p">:</span>
+                <span class="n">dill</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dill</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span></div></div>
+
+<span class="n">dillFormat</span> <span class="o">=</span> <span class="n">DillFormat</span><span class="p">()</span>
+
+<span class="kn">import</span> <span class="nn">json</span>
+<div class="viewcode-block" id="JsonFormat"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.JsonFormat">[docs]</a><span class="k">class</span> <span class="nc">JsonFormat</span><span class="p">(</span><span class="n">Format</span><span class="p">[</span><span class="n">Any</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;A format that serializes Python object with JSON.</span>
+
+<span class="sd">    If you are looking to serialize lists of things, you probably want</span>
+<span class="sd">    JsonlFormat or JsonlGzFormat.</span>
+
+<span class="sd">    To use this format, simply refer to ``pipette.jsonFormat``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="n">SUFFIX</span> <span class="o">=</span> <span class="s2">&quot;.json&quot;</span>
+
+<div class="viewcode-block" id="JsonFormat.read"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.JsonFormat.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="nb">input</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="JsonFormat.write"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.JsonFormat.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span></div></div>
+
+<span class="n">jsonFormat</span> <span class="o">=</span> <span class="n">JsonFormat</span><span class="p">()</span>
+
+<div class="viewcode-block" id="JsonlFormat"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.JsonlFormat">[docs]</a><span class="k">class</span> <span class="nc">JsonlFormat</span><span class="p">(</span><span class="n">Format</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]]):</span>
+    <span class="sd">&quot;&quot;&quot;A format that serializes lists of Python objects to JSON, one line per item.</span>
+
+<span class="sd">    To use this format, simply refer to ``pipette.jsonlFormat``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SUFFIX</span> <span class="o">=</span> <span class="s2">&quot;.jsonl&quot;</span>
+
+<div class="viewcode-block" id="JsonlFormat.read"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.JsonlFormat.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">line</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="JsonlFormat.write"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.JsonlFormat.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">output</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">input</span><span class="p">:</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">item</span><span class="p">))</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div></div>
+
+<span class="n">jsonlFormat</span> <span class="o">=</span> <span class="n">JsonlFormat</span><span class="p">()</span>
+
+<span class="kn">import</span> <span class="nn">gzip</span>
+<div class="viewcode-block" id="JsonlGzFormat"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.JsonlGzFormat">[docs]</a><span class="k">class</span> <span class="nc">JsonlGzFormat</span><span class="p">(</span><span class="n">Format</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]]):</span>
+    <span class="sd">&quot;&quot;&quot;A format that serializes lists of Python objects to JSON, one line per item, and compresses the file.</span>
+
+<span class="sd">    To use this format, simply refer to ``pipette.jsonlGzFormat``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">SUFFIX</span> <span class="o">=</span> <span class="s2">&quot;.jsonl.gz&quot;</span>
+
+<div class="viewcode-block" id="JsonlGzFormat.read"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.JsonlGzFormat.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="n">uncompressed</span> <span class="o">=</span> <span class="n">gzip</span><span class="o">.</span><span class="n">GzipFile</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="n">fileobj</span><span class="o">=</span><span class="nb">input</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">(</span><span class="n">uncompressed</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">line</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="JsonlGzFormat.write"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.JsonlGzFormat.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">output</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">gzip</span><span class="o">.</span><span class="n">GzipFile</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;wb&quot;</span><span class="p">,</span> <span class="n">fileobj</span><span class="o">=</span><span class="n">output</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">input</span><span class="p">:</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">item</span><span class="p">))</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div></div>
+
+<span class="n">jsonlGzFormat</span> <span class="o">=</span> <span class="n">JsonlGzFormat</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="random_string"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.random_string">[docs]</a><span class="k">def</span> <span class="nf">random_string</span><span class="p">(</span><span class="n">length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Returns a random string of readable characters.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">ascii_lowercase</span> <span class="o">+</span> <span class="n">string</span><span class="o">.</span><span class="n">digits</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">length</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Store"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Store">[docs]</a><span class="k">class</span> <span class="nc">Store</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A key/value store that Pipette uses to store the results from Tasks.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Store.exists"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Store.exists">[docs]</a>    <span class="k">def</span> <span class="nf">exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns True if the given result already exists in the store.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Store.locked"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Store.locked">[docs]</a>    <span class="k">def</span> <span class="nf">locked</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns True if the given result is locked in the store.</span>
+
+<span class="sd">        Results get locked when a task starts working on them, but is not yet</span>
+<span class="sd">        complete. This prevents multiple processes from working on the same task</span>
+<span class="sd">        at the same time, and overwriting each other&#39;s results.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Store.read"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Store.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Format</span> <span class="o">=</span> <span class="n">dillFormat</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Reads a result from the store.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Store.write"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Store.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Format</span> <span class="o">=</span> <span class="n">dillFormat</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Writes a result to the store.</span>
+
+<span class="sd">        While the writing is going on, this locks the results it is writing to,</span>
+<span class="sd">        so that no other task writes to the same result at the same time.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Store.url_for_name"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Store.url_for_name">[docs]</a>    <span class="k">def</span> <span class="nf">url_for_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns a copy-and-paste worthy URL for the result with the given name.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Store.id"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Store.id">[docs]</a>    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Every store has an id. It is unique string that helps recognize when the store changes.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+    <span class="n">_weird_patterns</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;//&quot;</span><span class="p">,</span> <span class="s2">&quot;./&quot;</span><span class="p">,</span> <span class="s2">&quot;/.&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;..&quot;</span><span class="p">}</span>
+    <span class="k">def</span> <span class="nf">_name_check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Check whether a name makes sense as a name for a result.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Name &#39;</span><span class="si">{name}</span><span class="s2">&#39; can&#39;t start with a slash.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Name &#39;</span><span class="si">{name}</span><span class="s2">&#39; can&#39;t end with a slash.&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">weird_pattern</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weird_patterns</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">weird_pattern</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Name &#39;</span><span class="si">{name}</span><span class="s2">&#39; looks weird.&quot;</span><span class="p">)</span></div>
+
+
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<div class="viewcode-block" id="LocalStore"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.LocalStore">[docs]</a><span class="k">class</span> <span class="nc">LocalStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A store that stores the files in a local filesystem.</span>
+
+<span class="sd">    This is particularly effective when the local filesystem is NFS-mounted and</span>
+<span class="sd">    available from multiple machines.</span>
+
+<span class="sd">    It is safe, though useless, to create multiple instances of LocalStore that</span>
+<span class="sd">    all use the same directory.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]):</span>
+        <span class="sd">&quot;&quot;&quot;Creates the store.</span>
+
+<span class="sd">        base_path is the root location in the file system where the store will</span>
+<span class="sd">                  live.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">base_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">base_path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_path</span> <span class="o">=</span> <span class="n">base_path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_path</span> <span class="o">/</span> <span class="s2">&quot;id.txt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;xt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">random_string</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">FileExistsError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+<div class="viewcode-block" id="LocalStore.exists"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.LocalStore.exists">[docs]</a>    <span class="k">def</span> <span class="nf">exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_check</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_path</span> <span class="o">/</span> <span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="LocalStore.locked"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.LocalStore.locked">[docs]</a>    <span class="k">def</span> <span class="nf">locked</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_check</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_path</span> <span class="o">/</span> <span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.lock&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="LocalStore.read"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.LocalStore.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Format</span> <span class="o">=</span> <span class="n">dillFormat</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_check</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="c1"># This leaks the file until the file object gets garbage collected. A</span>
+        <span class="c1"># worthwhile tradeoff to get streaming reads to work.</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_path</span> <span class="o">/</span> <span class="n">name</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Reading input from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">format</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;br&quot;</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="LocalStore.write"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.LocalStore.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Format</span> <span class="o">=</span> <span class="n">dillFormat</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_check</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">file_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_path</span> <span class="o">/</span> <span class="n">name</span>
+        <span class="n">lockfile_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_path</span> <span class="o">/</span> <span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.lock&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">file_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">lockfile_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="n">lockfile_path</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">lockfile_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">output</span><span class="p">:</span>
+                <span class="nb">format</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+            <span class="n">lockfile_path</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">lockfile_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="LocalStore.url_for_name"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.LocalStore.url_for_name">[docs]</a>    <span class="k">def</span> <span class="nf">url_for_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_check</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_path</span> <span class="o">/</span> <span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LocalStore.id"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.LocalStore.id">[docs]</a>    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">with</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_path</span> <span class="o">/</span> <span class="s2">&quot;id.txt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;rt&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="nb">id</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="k">return</span> <span class="nb">id</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span></div></div>
+
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<div class="viewcode-block" id="BeakerStore"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.BeakerStore">[docs]</a><span class="k">class</span> <span class="nc">BeakerStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A store that stores results in Beaker.</span>
+
+<span class="sd">    For this to work, the beaker command line tool needs to be on the path.</span>
+
+<span class="sd">    Optionally, this store supports a local cache. Using this cache is highly</span>
+<span class="sd">    recommended, because it makes locking much more reliable. It is particularly</span>
+<span class="sd">    effective to put the cache on an NFS-mounted drive, so multiple machines</span>
+<span class="sd">    can share it.</span>
+
+<span class="sd">    Do not use the same directory both as a local cache for BeakerStore, and as</span>
+<span class="sd">    the storage location for LocalStore. I don&#39;t know what happens when you do</span>
+<span class="sd">    that.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_cache_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">local_cache_path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">local_cache_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">local_cache_path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="o">=</span> <span class="n">local_cache_path</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BeakerStore.id"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.BeakerStore.id">[docs]</a>    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;There is only one beaker, so this always returns the same id.&quot;&quot;&quot;</span>
+        <span class="c1"># TODO: That said, it would be great if we could distinguish between beaker-internal, and beaker-external.</span>
+        <span class="k">return</span> <span class="s2">&quot;beaker&quot;</span></div>
+
+    <span class="k">class</span> <span class="nc">_BeakerDataset</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+        <span class="n">committed</span><span class="p">:</span> <span class="nb">bool</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_get_dataset</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_BeakerDataset</span><span class="p">:</span>
+        <span class="n">inspect_ds_process</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;beaker&quot;</span><span class="p">,</span> <span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="s2">&quot;inspect&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">],</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">inspect_ds_process</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">inspect_ds_process</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;not a valid name&quot;</span> <span class="ow">in</span> <span class="n">error</span> <span class="ow">or</span> <span class="s2">&quot;does not exist&quot;</span> <span class="ow">in</span> <span class="n">error</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+
+        <span class="n">inspect_result</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">inspect_ds_process</span><span class="o">.</span><span class="n">stdout</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">inspect_result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">inspect_result</span> <span class="o">=</span> <span class="n">inspect_result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_BeakerDataset</span><span class="p">(</span>
+            <span class="n">name</span><span class="p">,</span>
+            <span class="ow">not</span> <span class="n">inspect_result</span><span class="p">[</span><span class="s2">&quot;committed&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;0001-&quot;</span><span class="p">),</span>
+            <span class="n">inspect_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;source_task&quot;</span><span class="p">))</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_task_succeeded</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">task_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">inspect_tk_process</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;beaker&quot;</span><span class="p">,</span> <span class="s2">&quot;task&quot;</span><span class="p">,</span> <span class="s2">&quot;inspect&quot;</span><span class="p">,</span> <span class="n">task_name</span><span class="p">],</span>
+            <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
+        <span class="n">inspect_tk_result</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">inspect_tk_process</span><span class="o">.</span><span class="n">stdout</span><span class="p">))</span>
+        <span class="n">task_status</span> <span class="o">=</span> <span class="n">inspect_tk_result</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;status&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">task_status</span> <span class="o">==</span> <span class="s2">&quot;succeeded&quot;</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_delete_dataset</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="c1"># You can&#39;t actually delete datasets in Beaker, but you can rename them out of the way.</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;beaker&quot;</span><span class="p">,</span> <span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="s2">&quot;rename&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">f</span><span class="s2">&quot;deleted-</span><span class="si">{name}</span><span class="s2">-{random_string()}&quot;</span><span class="p">],</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+            <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_download_dataset_to</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]):</span>
+        <span class="n">fetch_process</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;beaker&quot;</span><span class="p">,</span> <span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="s2">&quot;fetch&quot;</span><span class="p">,</span> <span class="n">f</span><span class="s2">&quot;--output=</span><span class="si">{output}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">],</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fetch_process</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">fetch_process</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;not a valid name&quot;</span> <span class="ow">in</span> <span class="n">error</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_upload_dataset_from</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]):</span>
+        <span class="n">upload_process</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;beaker&quot;</span><span class="p">,</span> <span class="s2">&quot;dataset&quot;</span><span class="p">,</span> <span class="s2">&quot;create&quot;</span><span class="p">,</span> <span class="n">f</span><span class="s2">&quot;--name=</span><span class="si">{name}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">source</span><span class="p">)],</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">upload_process</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">upload_process</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;is already in use&quot;</span> <span class="ow">in</span> <span class="n">error</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BeakerStore.exists"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.BeakerStore.exists">[docs]</a>    <span class="k">def</span> <span class="nf">exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_check</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># check the local cache</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="o">/</span> <span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_dataset</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># check if the dataset is committed</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ds</span><span class="o">.</span><span class="n">committed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># check if the task that produced the dataset succeeded</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">task</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_task_succeeded</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">task</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="c1"># if it did not succeed, rename the dataset out of the way, and report that the data does</span>
+        <span class="c1"># not exist</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_delete_dataset</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="BeakerStore.locked"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.BeakerStore.locked">[docs]</a>    <span class="k">def</span> <span class="nf">locked</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_check</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># check the local cache</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="o">/</span> <span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.lock&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_dataset</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="n">ds</span><span class="o">.</span><span class="n">committed</span></div>
+
+<div class="viewcode-block" id="BeakerStore.read"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.BeakerStore.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Format</span> <span class="o">=</span> <span class="n">dillFormat</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_check</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># local cache case</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">local_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="o">/</span> <span class="n">name</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">local_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">down_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="o">/</span> <span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.down&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_download_dataset_to</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">down_path</span><span class="p">)</span>
+                <span class="n">down_path</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">local_path</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">format</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">local_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;br&quot;</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>   <span class="c1"># no local cache</span>
+            <span class="n">tfile</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2">-down-&quot;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">tfile</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tfile</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_download_dataset_to</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">tfile</span><span class="p">)</span>
+            <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">tfile</span><span class="o">.</span><span class="n">unlink</span><span class="p">())</span>
+            <span class="k">return</span> <span class="nb">format</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">tfile</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;br&quot;</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="BeakerStore.write"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.BeakerStore.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">Format</span> <span class="o">=</span> <span class="n">dillFormat</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name_check</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">locked</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># we write to a local file first, and then upload to beaker</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tfile</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2">-up-&quot;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="nb">format</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">tfile</span><span class="p">)</span>
+                <span class="n">tfile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_upload_dataset_from</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">tfile</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="n">Path</span><span class="p">(</span><span class="n">tfile</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">local_path</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="o">/</span> <span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.lock&quot;</span><span class="p">))</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">local_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">output</span><span class="p">:</span>
+                    <span class="nb">format</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">_upload_dataset_from</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">local_path</span><span class="p">)</span>
+                <span class="n">local_path</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_cache_path</span> <span class="o">/</span> <span class="n">name</span><span class="p">)</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="n">local_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">_TaskStub</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;We use this to cut off the dependency chain for tasks that are already done.&quot;&quot;&quot;</span>
+    <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="nb">format</span><span class="p">:</span> <span class="n">Format</span>
+
+<span class="k">class</span> <span class="nc">_SerializedTaskTuple</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">module_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">class_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">version_tag</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">inputs</span><span class="p">:</span> <span class="nb">dict</span>
+
+<span class="k">class</span> <span class="nc">_NamedTuplePickler</span><span class="p">(</span><span class="n">dill</span><span class="o">.</span><span class="n">Pickler</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Using dill, the named tuples we use become huge, so we use this custom pickler to make them</span>
+<span class="sd">    smaller.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">persistent_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">obj</span> <span class="o">==</span> <span class="n">_TaskStub</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">obj</span> <span class="o">==</span> <span class="n">_SerializedTaskTuple</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">_NamedTuplePickler</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">persistent_id</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">_NamedTupleUnpickler</span><span class="p">(</span><span class="n">dill</span><span class="o">.</span><span class="n">Unpickler</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Using dill, the named tuples we use become huge, so we use this custom unpickler to make them</span>
+<span class="sd">    smaller.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">persistent_load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pid</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">pid</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_TaskStub</span>
+        <span class="k">elif</span> <span class="n">pid</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_SerializedTaskTuple</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">_NamedTupleUnpickler</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">persistent_load</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_is_named_tuple_fn</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;For some reason, isinstance(o, *TaskStub) does not work with deserialized task stubs, so</span>
+<span class="sd">    we have to roll out own hacky way around that.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">inner_is_task_stub</span><span class="p">(</span><span class="n">o</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">((</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span> <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_fields</span><span class="p">))</span>   <span class="c1"># If it quacks like a duck ...</span>
+    <span class="k">return</span> <span class="n">inner_is_task_stub</span>
+<span class="n">_is_task_stub</span> <span class="o">=</span> <span class="n">_is_named_tuple_fn</span><span class="p">(</span><span class="n">_TaskStub</span><span class="p">)</span>
+<span class="n">_is_serialized_task_tuple</span> <span class="o">=</span> <span class="n">_is_named_tuple_fn</span><span class="p">(</span><span class="n">_SerializedTaskTuple</span><span class="p">)</span>
+
+<span class="n">_version_tag_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;^[a-zA-Z0-9]+$&quot;&quot;&quot;</span><span class="p">)</span>
+<span class="n">O</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s1">&#39;O&#39;</span><span class="p">)</span>
+<div class="viewcode-block" id="Task"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task">[docs]</a><span class="k">class</span> <span class="nc">Task</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">O</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot;The base class for pipette Tasks.</span>
+
+<span class="sd">    When you are writing your own tasks, at a minimum, override ``VERSION_TAG`` and</span>
+<span class="sd">    ``INPUTS``. You usually also want to set ``DEFAULTS``, and an ``OUTPUT_FORMAT``.</span>
+
+<span class="sd">    Here is a complete example of a task::</span>
+
+<span class="sd">        class PredictNextChampion(pipette.Task[str]):</span>
+<span class="sd">            VERSION_TAG = &quot;002arsenal&quot;</span>
+<span class="sd">            INPUTS = {</span>
+<span class="sd">                &quot;goals_per_team&quot;: pipette.Task[Dict[str, int]],</span>
+<span class="sd">                &quot;wins_per_team&quot;: pipette.Task[Dict[str, int]],</span>
+<span class="sd">                &quot;b&quot;: float</span>
+<span class="sd">            }</span>
+<span class="sd">            DEFAULTS = {</span>
+<span class="sd">                &quot;b&quot;: 0.37</span>
+<span class="sd">            }</span>
+<span class="sd">            OUTPUT_FORMAT = pipette.jsonFormat</span>
+
+<span class="sd">            def do(self, goals_per_team: Dict[str, int], wins_per_team: Dict[str, int], b: float):</span>
+<span class="sd">                results = []</span>
+<span class="sd">                for team, goals in goals_per_team.items():</span>
+<span class="sd">                    results.append((goals * b + wins_per_team.get(team, 0), team))</span>
+<span class="sd">                results.sort(reverse=True)</span>
+<span class="sd">                return results[0][1]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">VERSION_TAG</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="bp">NotImplemented</span>
+    <span class="sd">&quot;&quot;&quot;``VERSION_TAG`` specifies the version of the task. Bump it when the output</span>
+<span class="sd">    changes in a significant way. It will cause the task itself, and all</span>
+<span class="sd">    downstream tasks to be re-run. By convention, the tags look like ``&quot;001foo&quot;``,</span>
+<span class="sd">    with a number up front, and a micro-description afterwards.</span>
+<span class="sd">    </span>
+<span class="sd">    It is recommended, but not required, that version tags increase lexicographically with each</span>
+<span class="sd">    iteration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">INPUTS</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="sd">&quot;&quot;&quot;Specifies the possible input parameters for this task, mapping the parameters&#39; names to their types.</span>
+<span class="sd">    </span>
+<span class="sd">    Here is an example::</span>
+<span class="sd">    </span>
+<span class="sd">        INPUTS = {</span>
+<span class="sd">            &quot;count_home_goals&quot;: bool,</span>
+<span class="sd">            &quot;count_away_goals&quot;: bool,</span>
+<span class="sd">            &quot;matches&quot;: pipette.Task[Iterable[Match]]    # You can specify another task as an input like this.</span>
+<span class="sd">        }</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">DEFAULTS</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="sd">&quot;&quot;&quot;Specifies the defaults for input parameters for this task.</span>
+<span class="sd">    </span>
+<span class="sd">    Here is an example::</span>
+
+<span class="sd">        DEFAULTS = {</span>
+<span class="sd">            &quot;count_home_goals&quot;: True,</span>
+<span class="sd">            &quot;count_away_goals&quot;: True,</span>
+<span class="sd">            # You could specify another task as a default argument, but we won&#39;t do that in the example.</span>
+<span class="sd">            #&quot;matches&quot;: SimplifyTask(csv_file_path=&quot;season-1819.csv&quot;)</span>
+<span class="sd">        }</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">OUTPUT_FORMAT</span><span class="p">:</span> <span class="n">Format</span><span class="p">[</span><span class="n">O</span><span class="p">]</span> <span class="o">=</span> <span class="n">dillFormat</span>   <span class="c1"># Not the most efficient, but it can serialize almost anything. It&#39;s a good default.</span>
+    <span class="sd">&quot;&quot;&quot;Specifies the output format of the results of this task.</span>
+<span class="sd">    </span>
+<span class="sd">    Good choices are</span>
+
+<span class="sd">      * ``pipette.jsonlGzFormat`` for things you also want to manipulate outside of Python, i.e., with ``jq``</span>
+<span class="sd">      * ``pipette.json`` for small things, like final scores, or individual strings</span>
+<span class="sd">      * ``pipette.dillFormat`` for arbitrary Python objects</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">_version_tag_re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">VERSION_TAG</span><span class="p">),</span> <span class="n">f</span><span class="s2">&quot;Invalid version tag &#39;</span><span class="si">{self.VERSION_TAG}</span><span class="s2">&#39;&quot;</span>
+
+        <span class="k">if</span> <span class="s2">&quot;store&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;store&quot;</span><span class="p">]</span>
+            <span class="k">del</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;store&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">store_env_var</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;PIPETTE_STORE&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">store_env_var</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="n">LocalStore</span><span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;.pipette&quot;</span> <span class="o">/</span> <span class="s2">&quot;store&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">store_env_var</span> <span class="o">==</span> <span class="s2">&quot;beaker&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="n">BeakerStore</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">store_env_var</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;beaker:&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="n">BeakerStore</span><span class="p">(</span><span class="n">store_env_var</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;beaker:&quot;</span><span class="p">):])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">store</span> <span class="o">=</span> <span class="n">LocalStore</span><span class="p">(</span><span class="n">store_env_var</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="s2">&quot;store&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">DEFAULTS</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">}</span>
+
+        <span class="c1"># check the arguments</span>
+        <span class="n">extra_arguments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">INPUTS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extra_arguments</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Too many arguments for </span><span class="si">{self.__class__.__name__}</span><span class="s2">: {&#39; &#39;.join(extra_arguments)}&quot;</span><span class="p">)</span>
+
+        <span class="n">missing_arguments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">INPUTS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing_arguments</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Missing arguments for </span><span class="si">{self.__class__.__name__}</span><span class="s2">: {&#39; &#39;.join(missing_arguments)}&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">INPUTS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">fancy_name</span> <span class="o">=</span> <span class="n">f</span><span class="s2">&quot;</span><span class="si">{self.__class__.__name__}</span><span class="s2">.</span><span class="si">{name}</span><span class="s2">&quot;</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">typeguard</span><span class="o">.</span><span class="n">check_type</span><span class="p">(</span><span class="n">fancy_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">t</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># Tasks can be replaced by task stubs. That&#39;s their whole point.</span>
+                <span class="k">if</span> <span class="s2">&quot;must be pipette.Task; got __main__.TaskStub instead&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+                    <span class="k">pass</span>    <span class="c1"># It&#39;s too hard to check this case properly.</span>
+                <span class="k">elif</span> <span class="s2">&quot;must be pipette.Task; got pipette.TaskStub instead&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+                    <span class="k">pass</span>    <span class="c1"># It&#39;s too hard to check this case properly.</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span>
+
+<div class="viewcode-block" id="Task.do"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task.do">[docs]</a>    <span class="k">def</span> <span class="nf">do</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Do the actual work of the task.</span>
+
+<span class="sd">        This receives the parameters that were defined in the INPUTS dict. Pipette performs some</span>
+<span class="sd">        rudimentary type checking on these inputs before passing them to this function.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Task.results"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task.results">[docs]</a>    <span class="k">def</span> <span class="nf">results</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the results of this task.</span>
+
+<span class="sd">        This also runs all tasks that this task depends on, and caches all results, including the</span>
+<span class="sd">        result from this task itself.&quot;&quot;&quot;</span>
+        <span class="n">printable_inputs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">:</span>
+                <span class="n">printable_inputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="si">{key}</span><span class="s2">: Too big to print&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="nb">repr</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">150</span><span class="p">:</span>
+                    <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="p">[:</span><span class="mi">150</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot; ...&quot;</span>
+                <span class="n">printable_inputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="si">{key}</span><span class="s2">: </span><span class="si">{r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">printable_inputs</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">printable_inputs</span><span class="p">)</span>
+
+        <span class="n">output_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_name</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_name</span><span class="p">):</span>
+            <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Reading {self.output_name()} with the following inputs:</span><span class="se">\n</span><span class="si">{printable_inputs}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">output_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">OUTPUT_FORMAT</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">replace_tasks_with_results</span><span class="p">(</span><span class="n">o</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Task</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">results</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">_is_task_stub</span><span class="p">(</span><span class="n">o</span><span class="p">):</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">file_name</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">format</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">List</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">[</span><span class="n">replace_tasks_with_results</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Set</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">{</span><span class="n">replace_tasks_with_results</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="p">}</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Dict</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">{</span><span class="n">key</span> <span class="p">:</span> <span class="n">replace_tasks_with_results</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">o</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">replace_tasks_with_results</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span>
+
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Computing {self.output_name()} with the following inputs:</span><span class="se">\n</span><span class="si">{printable_inputs}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">do</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Writing {self.output_name()}&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">output_name</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">OUTPUT_FORMAT</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s2">&quot;__next__&quot;</span><span class="p">):</span>
+            <span class="c1"># If we just wrote a generator-like function to disk, we need to re-read it.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">output_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">OUTPUT_FORMAT</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="Task.output_exists"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task.output_exists">[docs]</a>    <span class="k">def</span> <span class="nf">output_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns whether or not the output for this task already exists.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_name</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Task.output_locked"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task.output_locked">[docs]</a>    <span class="k">def</span> <span class="nf">output_locked</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns whether or not the output for this task is locked.</span>
+
+<span class="sd">        Outputs should only be locked while a process is working on producing this output.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">locked</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_name</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Task.hash_object"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task.hash_object">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">hash_object</span><span class="p">(</span><span class="n">o</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns a 16-character hash code of arbitrary Python objects.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span> <span class="k">as</span> <span class="n">buffer</span><span class="p">:</span>
+            <span class="n">dill</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">buffer</span><span class="p">)</span>
+            <span class="nb">hash</span> <span class="o">=</span> <span class="n">mmh3</span><span class="o">.</span><span class="n">hash_bytes</span><span class="p">(</span><span class="n">buffer</span><span class="o">.</span><span class="n">getvalue</span><span class="p">(),</span> <span class="n">x64arch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="nb">hash</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b32encode</span><span class="p">(</span><span class="nb">hash</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">[:</span><span class="mi">16</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span></div>
+
+    <span class="n">_cached_output_name</span> <span class="o">=</span> <span class="kc">None</span>
+<div class="viewcode-block" id="Task.output_name"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task.output_name">[docs]</a>    <span class="k">def</span> <span class="nf">output_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the name of the results of this task.</span>
+
+<span class="sd">        This works whether or not the task has been completed yet.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cached_output_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">replace_tasks_with_hashes</span><span class="p">(</span><span class="n">o</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Task</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">output_name</span><span class="p">()</span>
+                <span class="k">elif</span> <span class="n">_is_task_stub</span><span class="p">(</span><span class="n">o</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">file_name</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">List</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="p">[</span><span class="n">replace_tasks_with_hashes</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Set</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="p">{</span><span class="n">replace_tasks_with_hashes</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="p">}</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Dict</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="p">{</span><span class="n">key</span> <span class="p">:</span> <span class="n">replace_tasks_with_hashes</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">o</span>
+            <span class="nb">hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash_object</span><span class="p">(</span><span class="n">replace_tasks_with_hashes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cached_output_name</span> <span class="o">=</span> <span class="n">f</span><span class="s2">&quot;</span><span class="si">{self.__class__.__name__}</span><span class="s2">-</span><span class="si">{self.VERSION_TAG}</span><span class="s2">-</span><span class="si">{hash}{self.OUTPUT_FORMAT.SUFFIX}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cached_output_name</span></div>
+
+<div class="viewcode-block" id="Task.output_url"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task.output_url">[docs]</a>    <span class="k">def</span> <span class="nf">output_url</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns a copy-and-paste friendly rendition of the output file of this task.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">url_for_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_name</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Task.dependencies"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task.dependencies">[docs]</a>    <span class="k">def</span> <span class="nf">dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="s1">&#39;Task&#39;</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;Returns all tasks that this task depends on.</span>
+
+<span class="sd">        This is extracted from the inputs given to the task.</span>
+
+<span class="sd">        Results come back in a dictionary mapping the name of the input parameter to a list of</span>
+<span class="sd">        tasks that are specified under that name. The same task might show up multiple times.&quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">dependencies_internal</span><span class="p">(</span><span class="n">o</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="s1">&#39;Task&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Task</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">o</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="k">return</span>  <span class="c1"># Confusingly, str is an Iterable of itself, resulting in infinite recursion.</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">):</span>
+                <span class="k">yield from</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">dependencies_internal</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Dict</span><span class="p">):</span>
+                <span class="k">yield from</span> <span class="n">dependencies_internal</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">key</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">dependencies_internal</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span></div>
+
+<div class="viewcode-block" id="Task.flat_unique_dependencies"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task.flat_unique_dependencies">[docs]</a>    <span class="k">def</span> <span class="nf">flat_unique_dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="s1">&#39;Task&#39;</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Returns an iterable of tasks that this task depends on.</span>
+
+<span class="sd">        This is extracted from the inputs given to the task.&quot;&quot;&quot;</span>
+        <span class="n">seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">dependencies</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+            <span class="n">output_name</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">output_name</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">output_name</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">output_name</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">d</span></div>
+
+<div class="viewcode-block" id="Task.serialized_task_config"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.Task.serialized_task_config">[docs]</a>    <span class="k">def</span> <span class="nf">serialized_task_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns a serialized configuration of this task.</span>
+
+<span class="sd">        You can use the result of this to transfer the input parameters to another machine and run</span>
+<span class="sd">        the task there.&quot;&quot;&quot;</span>
+
+        <span class="c1"># The important thing about this caching scheme for stubs and tuples is that if a task</span>
+        <span class="c1"># is reachable through multiple paths in the dependency graph, we still want to serialize</span>
+        <span class="c1"># it only once. So we make sure that the object graph we pass to the serializer contains</span>
+        <span class="c1"># every stub and tuple only once, even if it is referenced multiple times.</span>
+
+        <span class="c1"># some machinery to replace tasks with task stubs</span>
+        <span class="n">output_name_to_task_stub</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">def</span> <span class="nf">stub_for_task</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">Task</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_TaskStub</span><span class="p">:</span>
+            <span class="k">nonlocal</span> <span class="n">output_name_to_task_stub</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">output_name_to_task_stub</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">output_name</span><span class="p">()]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="n">task_stub</span> <span class="o">=</span> <span class="n">_TaskStub</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">output_name</span><span class="p">(),</span> <span class="n">t</span><span class="o">.</span><span class="n">OUTPUT_FORMAT</span><span class="p">)</span>
+                <span class="n">output_name_to_task_stub</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">output_name</span><span class="p">()]</span> <span class="o">=</span> <span class="n">task_stub</span>
+                <span class="k">return</span> <span class="n">task_stub</span>
+
+        <span class="c1"># some machinery to replace tasks with a serializable tuple form of the task</span>
+        <span class="n">output_name_to_tuple</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">def</span> <span class="nf">tuple_for_task</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">Task</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_SerializedTaskTuple</span><span class="p">:</span>
+            <span class="k">nonlocal</span> <span class="n">output_name_to_tuple</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">output_name_to_tuple</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">output_name</span><span class="p">()]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="nb">tuple</span> <span class="o">=</span> <span class="n">_SerializedTaskTuple</span><span class="p">(</span>
+                    <span class="n">t</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span><span class="p">,</span>
+                    <span class="n">t</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                    <span class="n">t</span><span class="o">.</span><span class="n">VERSION_TAG</span><span class="p">,</span>
+                    <span class="n">replace_tasks_with_stubs_and_tuples</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">output_name_to_tuple</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">output_name</span><span class="p">()]</span> <span class="o">=</span> <span class="nb">tuple</span>
+                <span class="k">return</span> <span class="nb">tuple</span>
+
+        <span class="k">def</span> <span class="nf">replace_tasks_with_stubs_and_tuples</span><span class="p">(</span><span class="n">o</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Task</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="n">output_exists</span><span class="p">():</span>
+                    <span class="k">return</span> <span class="n">stub_for_task</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">tuple_for_task</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">List</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">[</span><span class="n">replace_tasks_with_stubs_and_tuples</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Set</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">{</span><span class="n">replace_tasks_with_stubs_and_tuples</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="p">}</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Dict</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">{</span><span class="n">key</span> <span class="p">:</span> <span class="n">replace_tasks_with_stubs_and_tuples</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">o</span>
+
+        <span class="c1"># serialize the task itself</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">replace_tasks_with_stubs_and_tuples</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span> <span class="k">as</span> <span class="n">buffer</span><span class="p">:</span>
+            <span class="n">pickler</span> <span class="o">=</span> <span class="n">_NamedTuplePickler</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
+            <span class="n">pickler</span><span class="o">.</span><span class="n">dump</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">id</span><span class="p">(),</span> <span class="n">inputs</span><span class="p">))</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">buffer</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">compress</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="mi">9</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">urlsafe_b64encode</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">f</span><span class="s2">&quot;</span><span class="si">{self.__class__.__module__}</span><span class="s2">.</span><span class="si">{self.__class__.__name__}</span><span class="s2">-</span><span class="si">{self.VERSION_TAG}</span><span class="s2">(</span><span class="si">{result}</span><span class="s2">)&quot;</span></div></div>
+
+<span class="n">_task_config_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;^([.a-zA-Z0-9_]+)-([a-zA-Z0-9]+)\(([-a-zA-Z0-9_=]+)\)$&quot;&quot;&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="create_from_serialized_task_config"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.create_from_serialized_task_config">[docs]</a><span class="k">def</span> <span class="nf">create_from_serialized_task_config</span><span class="p">(</span><span class="n">task_config</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Task</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Creates a task using the serialized form from Task.serialized_task_config().&quot;&quot;&quot;</span>
+    <span class="n">parsed_tc</span> <span class="o">=</span> <span class="n">_task_config_re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">task_config</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">parsed_tc</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Not a valid task config: </span><span class="si">{task_config}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">class_name</span><span class="p">,</span> <span class="n">version_tag</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">parsed_tc</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+
+    <span class="c1"># find the class</span>
+    <span class="n">module_name</span><span class="p">,</span> <span class="n">class_name</span> <span class="o">=</span> <span class="n">class_name</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+    <span class="n">clazz</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">class_name</span><span class="p">)</span>
+
+    <span class="c1"># find the parameters</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">urlsafe_b64decode</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">decompress</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">as</span> <span class="n">buffer</span><span class="p">:</span>
+        <span class="n">unpickler</span> <span class="o">=</span> <span class="n">_NamedTupleUnpickler</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
+        <span class="n">store_id</span><span class="p">,</span> <span class="n">inputs</span> <span class="o">=</span> <span class="n">unpickler</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">version_tag</span> <span class="o">==</span> <span class="n">clazz</span><span class="o">.</span><span class="n">VERSION_TAG</span>
+
+    <span class="c1"># replace all instances of SerializedTaskTuple with Task</span>
+    <span class="c1"># Again, using this cache not for performance, but so that we get only one task for one</span>
+    <span class="c1"># task tuple, even if the task tuple is referenced multiple times.</span>
+    <span class="n">tuple_id_to_task</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">def</span> <span class="nf">task_for_tuple</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">_SerializedTaskTuple</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Task</span><span class="p">:</span>
+        <span class="k">nonlocal</span> <span class="n">tuple_id_to_task</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">tuple_id_to_task</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">t</span><span class="p">)]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">module_name</span><span class="p">)</span>
+            <span class="n">clazz</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">class_name</span><span class="p">)</span>
+            <span class="n">task</span> <span class="o">=</span> <span class="n">clazz</span><span class="p">(</span><span class="o">**</span><span class="n">replace_tuples_with_tasks</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">inputs</span><span class="p">))</span>
+            <span class="k">assert</span> <span class="n">task</span><span class="o">.</span><span class="n">VERSION_TAG</span> <span class="o">==</span> <span class="n">t</span><span class="o">.</span><span class="n">version_tag</span>
+            <span class="k">if</span> <span class="n">store_id</span> <span class="o">!=</span> <span class="n">task</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">id</span><span class="p">():</span>
+                <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Attempting deserialize a Task that was created on a different store.&quot;</span><span class="p">)</span>
+            <span class="n">tuple_id_to_task</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">t</span><span class="p">)]</span> <span class="o">=</span> <span class="n">task</span>
+            <span class="k">return</span> <span class="n">task</span>
+    <span class="k">def</span> <span class="nf">replace_tuples_with_tasks</span><span class="p">(</span><span class="n">o</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">_is_serialized_task_tuple</span><span class="p">(</span><span class="n">o</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">task_for_tuple</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">List</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">replace_tuples_with_tasks</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Set</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">replace_tuples_with_tasks</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="p">}</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Dict</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">key</span> <span class="p">:</span> <span class="n">replace_tuples_with_tasks</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">o</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="n">replace_tuples_with_tasks</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+
+    <span class="n">instance</span> <span class="o">=</span> <span class="n">clazz</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">store_id</span> <span class="o">!=</span> <span class="n">instance</span><span class="o">.</span><span class="n">store</span><span class="o">.</span><span class="n">id</span><span class="p">():</span>
+        <span class="n">_logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Attempting deserialize a Task that was created on a different store.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">instance</span></div>
+
+<div class="viewcode-block" id="to_graphviz"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.to_graphviz">[docs]</a><span class="k">def</span> <span class="nf">to_graphviz</span><span class="p">(</span><span class="n">task_or_tasks</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Task</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Returns the complete task graph, in Dot format, ready for Graphviz.</span>
+
+<span class="sd">    You can paste the results into http://www.webgraphviz.com to see the graph in rendered</span>
+<span class="sd">    form.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">task_or_tasks</span><span class="p">,</span> <span class="n">Task</span><span class="p">):</span>
+        <span class="n">task_or_tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">task_or_tasks</span><span class="p">]</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;digraph G {&quot;</span><span class="p">]</span>
+
+    <span class="n">maybe_not_graphed_yet</span> <span class="o">=</span> <span class="n">task_or_tasks</span>
+    <span class="n">already_graphed</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">maybe_not_graphed_yet</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">maybe_not_graphed_yet</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">t_name</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">output_name</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t_name</span> <span class="ow">in</span> <span class="n">already_graphed</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># put this node into the output</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="n">subtitle</span> <span class="o">=</span> <span class="n">t_name</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">title</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">style</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="s1">&#39;label=&quot;</span><span class="si">{title}</span><span class="se">\\</span><span class="s1">n</span><span class="si">{subtitle}</span><span class="s1">&quot;&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">output_exists</span><span class="p">():</span>
+            <span class="n">style</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;style=filled&quot;</span><span class="p">)</span>
+        <span class="n">style</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">style</span><span class="p">)</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;  &quot;</span><span class="si">{t_name}</span><span class="s1">&quot; [</span><span class="si">{style}</span><span class="s1">];&#39;</span><span class="p">)</span>
+        <span class="n">already_graphed</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">t_name</span><span class="p">)</span>
+
+        <span class="c1"># put connections into the output</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">dependencies</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">dependencies</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">dependency</span> <span class="ow">in</span> <span class="n">dependencies</span><span class="p">:</span>
+                <span class="n">maybe_not_graphed_yet</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dependency</span><span class="p">)</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="s1">&#39;  &quot;{dependency.output_name()}&quot; -&gt; &quot;</span><span class="si">{t_name}</span><span class="s1">&quot; [label=&quot;</span><span class="si">{key}</span><span class="s1">&quot;];&#39;</span><span class="p">)</span>
+
+    <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;}&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+
+<span class="kn">from</span> <span class="nn">.asciidag</span> <span class="k">import</span> <span class="n">graph</span> <span class="k">as</span> <span class="n">adgraph</span>
+<span class="kn">from</span> <span class="nn">.asciidag</span> <span class="k">import</span> <span class="n">node</span> <span class="k">as</span> <span class="n">adnode</span>
+<span class="k">def</span> <span class="nf">_to_asciidag</span><span class="p">(</span>
+    <span class="n">task_or_tasks</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Task</span><span class="p">]],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">only_incomplete</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">print_commands</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">adnode</span><span class="o">.</span><span class="n">Node</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Returns the task graph in ASCIIDag form.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">task_or_tasks</span><span class="p">,</span> <span class="n">Task</span><span class="p">):</span>
+        <span class="n">task_or_tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">task_or_tasks</span><span class="p">]</span>
+    <span class="n">tasks</span> <span class="o">=</span> <span class="n">task_or_tasks</span>
+    <span class="k">if</span> <span class="n">only_incomplete</span><span class="p">:</span>
+        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tasks</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">t</span><span class="o">.</span><span class="n">output_exists</span><span class="p">()]</span>
+
+    <span class="n">output_name_to_node</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">def</span> <span class="nf">node_for_task</span><span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">Task</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">adnode</span><span class="o">.</span><span class="n">Node</span><span class="p">:</span>
+        <span class="k">nonlocal</span> <span class="n">output_name_to_node</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">output_name_to_node</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">output_name</span><span class="p">()]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">tags</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">output_exists</span><span class="p">():</span>
+                <span class="n">tags</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;complete&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">output_locked</span><span class="p">():</span>
+                <span class="n">tags</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;locked&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">print_commands</span><span class="p">:</span>
+                <span class="n">text</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;python -m pipette run &quot;{t.serialized_task_config()}&quot;&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">text</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">output_name</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tags</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">text</span> <span class="o">+=</span> <span class="n">f</span><span class="s2">&quot; ({&#39;, &#39;.join(tags)})&quot;</span>
+            <span class="n">node</span> <span class="o">=</span> <span class="n">adnode</span><span class="o">.</span><span class="n">Node</span><span class="p">(</span>
+                <span class="n">text</span><span class="p">,</span>
+                <span class="n">parents</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">node_for_task</span><span class="p">(</span><span class="n">dep</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">dep</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">flat_unique_dependencies</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">only_incomplete</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">dep</span><span class="o">.</span><span class="n">output_exists</span><span class="p">()</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">output_name_to_node</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">output_name</span><span class="p">()]</span> <span class="o">=</span> <span class="n">node</span>
+            <span class="k">return</span> <span class="n">node</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">node_for_task</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">]</span>
+
+<div class="viewcode-block" id="to_commands"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.to_commands">[docs]</a><span class="k">def</span> <span class="nf">to_commands</span><span class="p">(</span>
+    <span class="n">task_or_tasks</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Task</span><span class="p">]],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">only_runnable_now</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Returns a list of tasks in a form that can be copy-and-pasted onto a command line.</span>
+
+<span class="sd">    If ``only_runnable_now`` is True, this only returns tasks where all their dependencies are</span>
+<span class="sd">    satisfied.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">task_or_tasks</span><span class="p">,</span> <span class="n">Task</span><span class="p">):</span>
+        <span class="n">task_or_tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">task_or_tasks</span><span class="p">]</span>
+    <span class="n">tasks</span> <span class="o">=</span> <span class="n">task_or_tasks</span>
+
+    <span class="n">name_to_task</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">tasks_done</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="n">tasks_waiting</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="c1"># fill up tasks_done and tasks_waiting</span>
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">tasks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">tasks</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">t_name</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">output_name</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t_name</span> <span class="ow">in</span> <span class="n">name_to_task</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">name_to_task</span><span class="p">[</span><span class="n">t_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span>
+
+        <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">output_exists</span><span class="p">():</span>
+            <span class="n">tasks_done</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">t_name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tasks_waiting</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">t_name</span><span class="p">)</span>
+            <span class="n">tasks</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">flat_unique_dependencies</span><span class="p">())</span>
+
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">tasks_waiting</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># find all the tasks that are ready</span>
+        <span class="n">tasks_ready</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tasks_waiting</span><span class="p">:</span>
+            <span class="n">dependencies</span> <span class="o">=</span> <span class="p">{</span><span class="n">d</span><span class="o">.</span><span class="n">output_name</span><span class="p">()</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">name_to_task</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">.</span><span class="n">flat_unique_dependencies</span><span class="p">()}</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dependencies</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">dependencies</span> <span class="o">&amp;</span> <span class="n">tasks_done</span><span class="p">):</span>
+                <span class="n">tasks_ready</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+
+        <span class="c1"># print all the tasks that are ready</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tasks_ready</span> <span class="o">&amp;</span> <span class="n">tasks_done</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tasks_ready</span><span class="p">:</span>
+            <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">if</span> <span class="n">name_to_task</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">.</span><span class="n">output_locked</span><span class="p">():</span>
+                <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot; (locked)&quot;</span>
+            <span class="k">yield</span> <span class="n">f</span><span class="s1">&#39;python -m pipette run &quot;{name_to_task[t].serialized_task_config()}&quot;</span><span class="si">{suffix}</span><span class="s1">&#39;</span>
+
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tasks_ready</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">only_runnable_now</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="s2">&quot;# --&quot;</span>
+
+        <span class="n">tasks_done</span> <span class="o">|=</span> <span class="n">tasks_ready</span>
+        <span class="n">tasks_waiting</span> <span class="o">-=</span> <span class="n">tasks_ready</span></div>
+
+<div class="viewcode-block" id="runnable_commands"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.runnable_commands">[docs]</a><span class="k">def</span> <span class="nf">runnable_commands</span><span class="p">(</span><span class="n">task_or_tasks</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Task</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Returns a list of tasks in a form that can be copy-and-pasted onto a command line.&quot;&quot;&quot;</span>
+    <span class="k">yield from</span> <span class="n">to_commands</span><span class="p">(</span><span class="n">task_or_tasks</span><span class="p">,</span> <span class="n">only_runnable_now</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../pipette.html#pipette.pipette.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">tasks</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Task</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;A main function that can operate on lists of tasks.</span>
+
+<span class="sd">    There are two uses for this. One is as a standalone program, which lets you do things like::</span>
+
+<span class="sd">        python -m pipette run &quot;tests.premierleague.PredictNextChampion-002arsenal(eNprYI4QYGBgMCu3sMg3rqjKNzVISjbJrihkqC1k1IhgBEolFTK529966L5OpOphBB9QID0_Mac4viC1KL4kNTG3kNmbMTBCGyjuDhIPSC0KAYrqGhgYpmUWFZfo5iQVVeZkF5uU5uYUp5unFuhlFefnFbIkF2QWpJaUpOpBaS4voLBbflFuYglXIatmYyFbWyF7YyFHBC_Q5PLMPCQLOUEWagGFw4HCGPZl5hSX56fkmZVlmhRmpGWaQ-zjygCax91YyFPaVsirBwA5FU99)&quot;</span>
+
+<span class="sd">    You can also use it as a substitute for your own main method, by putting this at the bottom of</span>
+<span class="sd">    your script::</span>
+
+<span class="sd">        if __name__ == &quot;__main__&quot;:</span>
+<span class="sd">            import sys</span>
+<span class="sd">            pipette.main(sys.argv, tasks)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">tasks</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tasks</span><span class="p">,</span> <span class="n">Task</span><span class="p">):</span>
+        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">tasks</span><span class="p">]</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+    <span class="kn">import</span> <span class="nn">argparse</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+
+    <span class="n">subparsers</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_subparsers</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;commands&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;command&quot;</span><span class="p">)</span>
+    <span class="n">run_parser</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s2">&quot;run&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Run a task, or multiple tasks&quot;</span><span class="p">)</span>
+    <span class="n">graphviz_parser</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s2">&quot;graphviz&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Print a graph description in dot format&quot;</span><span class="p">)</span>
+
+    <span class="n">runnable_parser</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s2">&quot;runnable&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Print descriptions of all currently runnable tasks&quot;</span><span class="p">)</span>
+    <span class="n">runnable_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--all&quot;</span><span class="p">,</span> <span class="s2">&quot;-a&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">)</span>
+
+    <span class="n">graph_parser</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s2">&quot;graph&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Print a graph description in git format&quot;</span><span class="p">)</span>
+    <span class="n">graph_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--only-incomplete&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Only print incomplete tasks&quot;</span><span class="p">)</span>
+    <span class="n">graph_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--commands&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Print commands, not task names&quot;</span><span class="p">)</span>
+    <span class="n">graph_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--runnable&quot;</span><span class="p">,</span> <span class="s2">&quot;-r&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Combination of --commands and --only-incomplete&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">subparser</span> <span class="ow">in</span> <span class="p">[</span><span class="n">run_parser</span><span class="p">,</span> <span class="n">graphviz_parser</span><span class="p">,</span> <span class="n">graph_parser</span><span class="p">,</span> <span class="n">runnable_parser</span><span class="p">]:</span>
+        <span class="n">subparser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;serialized_task_configs&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+            <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;*&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="p">[],</span>
+            <span class="n">help</span><span class="o">=</span><span class="n">f</span><span class="s2">&quot;The serialized task configs you got from &#39;</span><span class="si">{args[0]}</span><span class="s2"> runnable&#39;&quot;</span><span class="p">)</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">command</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">print_usage</span><span class="p">()</span>
+        <span class="k">return</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">serialized_task_configs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">tasks</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">create_from_serialized_task_config</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">serialized_task_configs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;graphviz&quot;</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">to_graphviz</span><span class="p">(</span><span class="n">tasks</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;graph&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">runnable</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">commands</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">only_incomplete</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">adgraph</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">show_nodes</span><span class="p">(</span>
+            <span class="n">_to_asciidag</span><span class="p">(</span>
+                <span class="n">tasks</span><span class="p">,</span>
+                <span class="n">only_incomplete</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">only_incomplete</span><span class="p">,</span>
+                <span class="n">print_commands</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">commands</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;runnable&quot;</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">serialized_command</span> <span class="ow">in</span> <span class="n">to_commands</span><span class="p">(</span><span class="n">tasks</span><span class="p">,</span> <span class="n">only_runnable_now</span><span class="o">=</span><span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">all</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">serialized_command</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">command</span> <span class="o">==</span> <span class="s2">&quot;run&quot;</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
+            <span class="n">task</span><span class="o">.</span><span class="n">results</span><span class="p">()</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">output_url</span><span class="p">())</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No command specified&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="mi">0</span></div>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">sys</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="n">main</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">))</span>
+
+<span class="c1"># This is specified explicitly so that the order in the docs makes sense.</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;Task&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_from_serialized_task_config&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;to_graphviz&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;to_commands&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;runnable_commands&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;main&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Store&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;LocalStore&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;BeakerStore&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Format&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;DillFormat&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;JsonFormat&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;JsonlFormat&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;JsonlGzFormat&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;random_string&quot;</span>
+<span class="p">]</span>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Allen Institute for Artificial Intelligence
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

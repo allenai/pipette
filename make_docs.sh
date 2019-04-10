@@ -14,3 +14,7 @@ fi
 pushd doc
 make html
 popd
+
+rm -r docs
+mkdir docs
+mv doc/_build/html/* ./docs/
