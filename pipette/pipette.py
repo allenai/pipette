@@ -1,3 +1,11 @@
+"""
+Pipette speeds up your experiments by figuring out which parts of your workflow have to be re-run,
+and which parts can be read from earlier results. It also organizes the results of the tasks in the
+workflow, so that you can run different steps on different machines, locally, or in the cloud. You
+no longer need to track files in spreadsheets, and invent clever naming schemes to keep everything
+straight.
+"""
+
 import atexit
 import base64
 import importlib
@@ -40,7 +48,10 @@ class DillFormat(Format[Any]):
     """A format that uses dill to serialize arbitrary Python objects.
 
     This format has special handling for iterable types. It takes care not to
-    read the entire iterable into memory during either reading or writing."""
+    read the entire iterable into memory during either reading or writing.
+
+    To use this format, simply refer to ``pipette.dillFormat``.
+    """
 
     SUFFIX = ".dill"
 
@@ -73,7 +84,11 @@ class JsonFormat(Format[Any]):
     """A format that serializes Python object with JSON.
 
     If you are looking to serialize lists of things, you probably want
-    JsonlFormat or JsonlGzFormat."""
+    JsonlFormat or JsonlGzFormat.
+
+    To use this format, simply refer to ``pipette.jsonFormat``.
+    """
+
 
     SUFFIX = ".json"
 
@@ -88,7 +103,10 @@ class JsonFormat(Format[Any]):
 jsonFormat = JsonFormat()
 
 class JsonlFormat(Format[Iterable[Any]]):
-    """A format that serializes lists of Python objects to JSON, one line per item."""
+    """A format that serializes lists of Python objects to JSON, one line per item.
+
+    To use this format, simply refer to ``pipette.jsonlFormat``.
+    """
     SUFFIX = ".jsonl"
 
     def read(self, input: BinaryIO) -> Iterable[Any]:
@@ -106,7 +124,10 @@ jsonlFormat = JsonlFormat()
 
 import gzip
 class JsonlGzFormat(Format[Iterable[Any]]):
-    """A format that serializes lists of Python objects to JSON, one line per item, and compresses the file."""
+    """A format that serializes lists of Python objects to JSON, one line per item, and compresses the file.
+
+    To use this format, simply refer to ``pipette.jsonlGzFormat``.
+    """
     SUFFIX = ".jsonl.gz"
 
     def read(self, input: BinaryIO) -> Iterable[Any]:
@@ -271,13 +292,13 @@ class BeakerStore(Store):
         # TODO: That said, it would be great if we could distinguish between beaker-internal, and beaker-external.
         return "beaker"
 
-    class BeakerDataset(NamedTuple):
+    class _BeakerDataset(NamedTuple):
         name: str
         committed: bool
         task: Optional[str]
 
     @classmethod
-    def _get_dataset(cls, name: str) -> BeakerDataset:
+    def _get_dataset(cls, name: str) -> _BeakerDataset:
         inspect_ds_process = subprocess.run(
             ["beaker", "dataset", "inspect", name],
             stdout=subprocess.PIPE,
@@ -293,7 +314,7 @@ class BeakerStore(Store):
         assert len(inspect_result) == 1
         inspect_result = inspect_result[0]
 
-        return cls.BeakerDataset(
+        return cls._BeakerDataset(
             name,
             not inspect_result["committed"].startswith("0001-"),
             inspect_result.get("source_task"))
@@ -426,38 +447,38 @@ class BeakerStore(Store):
                 local_path.unlink()
 
 
-class TaskStub(NamedTuple):
+class _TaskStub(NamedTuple):
     """We use this to cut off the dependency chain for tasks that are already done."""
     file_name: str
     format: Format
 
-class SerializedTaskTuple(NamedTuple):
+class _SerializedTaskTuple(NamedTuple):
     module_name: str
     class_name: str
     version_tag: str
     inputs: dict
 
-class NamedTuplePickler(dill.Pickler):
+class _NamedTuplePickler(dill.Pickler):
     """Using dill, the named tuples we use become huge, so we use this custom pickler to make them
     smaller."""
     def persistent_id(self, obj):
-        if obj == TaskStub:
+        if obj == _TaskStub:
             return 1
-        elif obj == SerializedTaskTuple:
+        elif obj == _SerializedTaskTuple:
             return 2
         else:
-            return super(NamedTuplePickler, self).persistent_id(obj)
+            return super(_NamedTuplePickler, self).persistent_id(obj)
 
-class NamedTupleUnpickler(dill.Unpickler):
+class _NamedTupleUnpickler(dill.Unpickler):
     """Using dill, the named tuples we use become huge, so we use this custom unpickler to make them
     smaller."""
     def persistent_load(self, pid):
         if pid == 1:
-            return TaskStub
+            return _TaskStub
         elif pid == 2:
-            return SerializedTaskTuple
+            return _SerializedTaskTuple
         else:
-            return super(NamedTupleUnpickler, self).persistent_load(pid)
+            return super(_NamedTupleUnpickler, self).persistent_load(pid)
 
 def _is_named_tuple_fn(cls) -> Callable[[Any], bool]:
     """For some reason, isinstance(o, *TaskStub) does not work with deserialized task stubs, so
@@ -467,29 +488,82 @@ def _is_named_tuple_fn(cls) -> Callable[[Any], bool]:
             return False
         return all((hasattr(o, field) for field in cls._fields))   # If it quacks like a duck ...
     return inner_is_task_stub
-_is_task_stub = _is_named_tuple_fn(TaskStub)
-_is_serialized_task_tuple = _is_named_tuple_fn(SerializedTaskTuple)
+_is_task_stub = _is_named_tuple_fn(_TaskStub)
+_is_serialized_task_tuple = _is_named_tuple_fn(_SerializedTaskTuple)
 
 _version_tag_re = re.compile("""^[a-zA-Z0-9]+$""")
 O = TypeVar('O')
 class Task(Generic[O]):
     """The base class for pipette Tasks.
 
-    When you are writing your own tasks, at a minimum, override VERSION_TAG and
-    INPUTS. You usually also want to set DEFAULTS, and an OUTPUT_FORMAT.
+    When you are writing your own tasks, at a minimum, override ``VERSION_TAG`` and
+    ``INPUTS``. You usually also want to set ``DEFAULTS``, and an ``OUTPUT_FORMAT``.
 
-    VERSION_TAG specifies the version of the task. Bump it when the output
-    changes in a significant way. It will cause the task itself, and all
-    downstream tasks to be re-run. By convention, the tags look like "001foo",
-    with a number up front, and a micro-description afterwards.
+    Here is a complete example of a task::
 
-    
+        class PredictNextChampion(pipette.Task[str]):
+            VERSION_TAG = "002arsenal"
+            INPUTS = {
+                "goals_per_team": pipette.Task[Dict[str, int]],
+                "wins_per_team": pipette.Task[Dict[str, int]],
+                "b": float
+            }
+            DEFAULTS = {
+                "b": 0.37
+            }
+            OUTPUT_FORMAT = pipette.jsonFormat
+
+            def do(self, goals_per_team: Dict[str, int], wins_per_team: Dict[str, int], b: float):
+                results = []
+                for team, goals in goals_per_team.items():
+                    results.append((goals * b + wins_per_team.get(team, 0), team))
+                results.sort(reverse=True)
+                return results[0][1]
     """
 
     VERSION_TAG: str = NotImplemented
+    """``VERSION_TAG`` specifies the version of the task. Bump it when the output
+    changes in a significant way. It will cause the task itself, and all
+    downstream tasks to be re-run. By convention, the tags look like ``"001foo"``,
+    with a number up front, and a micro-description afterwards.
+    
+    It is recommended, but not required, that version tags increase lexicographically with each
+    iteration.
+    """
+
     INPUTS: Dict[str, Any] = {}
+    """Specifies the possible input parameters for this task, mapping the parameters' names to their types.
+    
+    Here is an example::
+    
+        INPUTS = {
+            "count_home_goals": bool,
+            "count_away_goals": bool,
+            "matches": pipette.Task[Iterable[Match]]    # You can specify another task as an input like this.
+        }
+    """
     DEFAULTS: Dict[str, Any] = {}
+    """Specifies the defaults for input parameters for this task.
+    
+    Here is an example::
+
+        DEFAULTS = {
+            "count_home_goals": True,
+            "count_away_goals": True,
+            # You could specify another task as a default argument, but we won't do that in the example.
+            #"matches": SimplifyTask(csv_file_path="season-1819.csv")
+        }
+    """
+
     OUTPUT_FORMAT: Format[O] = dillFormat   # Not the most efficient, but it can serialize almost anything. It's a good default.
+    """Specifies the output format of the results of this task.
+    
+    Good choices are
+
+      * ``pipette.jsonlGzFormat`` for things you also want to manipulate outside of Python, i.e., with ``jq``
+      * ``pipette.json`` for small things, like final scores, or individual strings
+      * ``pipette.dillFormat`` for arbitrary Python objects
+    """
 
     def __init__(self, **kwargs):
         assert _version_tag_re.match(self.VERSION_TAG), f"Invalid version tag '{self.VERSION_TAG}'"
@@ -534,9 +608,17 @@ class Task(Generic[O]):
                     raise
 
     def do(self, **inputs):
+        """Do the actual work of the task.
+
+        This receives the parameters that were defined in the INPUTS dict. Pipette performs some
+        rudimentary type checking on these inputs before passing them to this function."""
         raise NotImplementedError()
 
     def results(self):
+        """Returns the results of this task.
+
+        This also runs all tasks that this task depends on, and caches all results, including the
+        result from this task itself."""
         printable_inputs = []
         for key, o in self.inputs.items():
             if hasattr(o, "__len__") and len(o) > 1000:
@@ -580,13 +662,18 @@ class Task(Generic[O]):
             return result
 
     def output_exists(self) -> bool:
+        """Returns whether or not the output for this task already exists."""
         return self.store.exists(self.output_name())
 
     def output_locked(self) -> bool:
+        """Returns whether or not the output for this task is locked.
+
+        Outputs should only be locked while a process is working on producing this output."""
         return self.store.locked(self.output_name())
 
     @staticmethod
     def hash_object(o: Any) -> str:
+        """Returns a 16-character hash code of arbitrary Python objects."""
         with io.BytesIO() as buffer:
             dill.dump(o, buffer)
             hash = mmh3.hash_bytes(buffer.getvalue(), x64arch=True)
@@ -595,6 +682,9 @@ class Task(Generic[O]):
 
     _cached_output_name = None
     def output_name(self):
+        """Returns the name of the results of this task.
+
+        This works whether or not the task has been completed yet."""
         if self._cached_output_name is None:
             def replace_tasks_with_hashes(o: Any):
                 if isinstance(o, Task):
@@ -614,9 +704,16 @@ class Task(Generic[O]):
         return self._cached_output_name
 
     def output_url(self) -> str:
+        """Returns a copy-and-paste friendly rendition of the output file of this task."""
         return self.store.url_for_name(self.output_name())
 
     def dependencies(self) -> Dict[str, List['Task']]:
+        """Returns all tasks that this task depends on.
+
+        This is extracted from the inputs given to the task.
+
+        Results come back in a dictionary mapping the name of the input parameter to a list of
+        tasks that are specified under that name. The same task might show up multiple times."""
         def dependencies_internal(o: Any) -> Iterable['Task']:
             if isinstance(o, Task):
                 yield o
@@ -634,6 +731,9 @@ class Task(Generic[O]):
         }
 
     def flat_unique_dependencies(self) -> Iterable['Task']:
+        """Returns an iterable of tasks that this task depends on.
+
+        This is extracted from the inputs given to the task."""
         seen = set()
         for d in itertools.chain(*self.dependencies().values()):
             output_name = d.output_name()
@@ -643,6 +743,11 @@ class Task(Generic[O]):
             yield d
 
     def serialized_task_config(self) -> str:
+        """Returns a serialized configuration of this task.
+
+        You can use the result of this to transfer the input parameters to another machine and run
+        the task there."""
+
         # The important thing about this caching scheme for stubs and tuples is that if a task
         # is reachable through multiple paths in the dependency graph, we still want to serialize
         # it only once. So we make sure that the object graph we pass to the serializer contains
@@ -650,23 +755,23 @@ class Task(Generic[O]):
 
         # some machinery to replace tasks with task stubs
         output_name_to_task_stub = {}
-        def stub_for_task(t: Task) -> TaskStub:
+        def stub_for_task(t: Task) -> _TaskStub:
             nonlocal output_name_to_task_stub
             try:
                 return output_name_to_task_stub[t.output_name()]
             except KeyError:
-                task_stub = TaskStub(t.output_name(), t.OUTPUT_FORMAT)
+                task_stub = _TaskStub(t.output_name(), t.OUTPUT_FORMAT)
                 output_name_to_task_stub[t.output_name()] = task_stub
                 return task_stub
 
         # some machinery to replace tasks with a serializable tuple form of the task
         output_name_to_tuple = {}
-        def tuple_for_task(t: Task) -> SerializedTaskTuple:
+        def tuple_for_task(t: Task) -> _SerializedTaskTuple:
             nonlocal output_name_to_tuple
             try:
                 return output_name_to_tuple[t.output_name()]
             except KeyError:
-                tuple = SerializedTaskTuple(
+                tuple = _SerializedTaskTuple(
                     t.__class__.__module__,
                     t.__class__.__name__,
                     t.VERSION_TAG,
@@ -693,7 +798,7 @@ class Task(Generic[O]):
         # serialize the task itself
         inputs = replace_tasks_with_stubs_and_tuples(self.inputs)
         with io.BytesIO() as buffer:
-            pickler = NamedTuplePickler(buffer)
+            pickler = _NamedTuplePickler(buffer)
             pickler.dump((self.store.id(), inputs))
             result = buffer.getvalue()
         result = zlib.compress(result, 9)
@@ -703,6 +808,7 @@ class Task(Generic[O]):
 
 _task_config_re = re.compile("""^([.a-zA-Z0-9_]+)-([a-zA-Z0-9]+)\(([-a-zA-Z0-9_=]+)\)$""")
 def create_from_serialized_task_config(task_config: str) -> Task:
+    """Creates a task using the serialized form from Task.serialized_task_config()."""
     parsed_tc = _task_config_re.match(task_config)
     if parsed_tc is None:
         raise ValueError(f"Not a valid task config: {task_config}")
@@ -718,7 +824,7 @@ def create_from_serialized_task_config(task_config: str) -> Task:
     config = base64.urlsafe_b64decode(config)
     config = zlib.decompress(config)
     with io.BytesIO(config) as buffer:
-        unpickler = NamedTupleUnpickler(buffer)
+        unpickler = _NamedTupleUnpickler(buffer)
         store_id, inputs = unpickler.load()
     assert version_tag == clazz.VERSION_TAG
 
@@ -726,7 +832,7 @@ def create_from_serialized_task_config(task_config: str) -> Task:
     # Again, using this cache not for performance, but so that we get only one task for one
     # task tuple, even if the task tuple is referenced multiple times.
     tuple_id_to_task = {}
-    def task_for_tuple(t: SerializedTaskTuple) -> Task:
+    def task_for_tuple(t: _SerializedTaskTuple) -> Task:
         nonlocal tuple_id_to_task
         try:
             return tuple_id_to_task[id(t)]
@@ -759,6 +865,10 @@ def create_from_serialized_task_config(task_config: str) -> Task:
     return instance
 
 def to_graphviz(task_or_tasks: Union[Task, Iterable[Task]]) -> str:
+    """Returns the complete task graph, in Dot format, ready for Graphviz.
+
+    You can paste the results into http://www.webgraphviz.com to see the graph in rendered
+    form."""
     if isinstance(task_or_tasks, Task):
         task_or_tasks = [task_or_tasks]
 
@@ -793,12 +903,13 @@ def to_graphviz(task_or_tasks: Union[Task, Iterable[Task]]) -> str:
 
 from .asciidag import graph as adgraph
 from .asciidag import node as adnode
-def to_asciidag(
+def _to_asciidag(
     task_or_tasks: Union[Task, List[Task]],
     *,
     only_incomplete: bool = False,
     print_commands: bool = False
 ) -> List[adnode.Node]:
+    """Returns the task graph in ASCIIDag form."""
     if isinstance(task_or_tasks, Task):
         task_or_tasks = [task_or_tasks]
     tasks = task_or_tasks
@@ -839,6 +950,10 @@ def to_commands(
     *,
     only_runnable_now: bool = False
 ) -> Iterable[str]:
+    """Returns a list of tasks in a form that can be copy-and-pasted onto a command line.
+
+    If ``only_runnable_now`` is True, this only returns tasks where all their dependencies are
+    satisfied."""
     if isinstance(task_or_tasks, Task):
         task_or_tasks = [task_or_tasks]
     tasks = task_or_tasks
@@ -887,9 +1002,23 @@ def to_commands(
         tasks_waiting -= tasks_ready
 
 def runnable_commands(task_or_tasks: Union[Task, Iterable[Task]]) -> Iterable[str]:
+    """Returns a list of tasks in a form that can be copy-and-pasted onto a command line."""
     yield from to_commands(task_or_tasks, only_runnable_now=True)
 
 def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> int:
+    """A main function that can operate on lists of tasks.
+
+    There are two uses for this. One is as a standalone program, which lets you do things like::
+
+        python -m pipette run "tests.premierleague.PredictNextChampion-002arsenal(eNprYI4QYGBgMCu3sMg3rqjKNzVISjbJrihkqC1k1IhgBEolFTK529966L5OpOphBB9QID0_Mac4viC1KL4kNTG3kNmbMTBCGyjuDhIPSC0KAYrqGhgYpmUWFZfo5iQVVeZkF5uU5uYUp5unFuhlFefnFbIkF2QWpJaUpOpBaS4voLBbflFuYglXIatmYyFbWyF7YyFHBC_Q5PLMPCQLOUEWagGFw4HCGPZl5hSX56fkmZVlmhRmpGWaQ-zjygCax91YyFPaVsirBwA5FU99)"
+
+    You can also use it as a substitute for your own main method, by putting this at the bottom of
+    your script::
+
+        if __name__ == "__main__":
+            import sys
+            pipette.main(sys.argv, tasks)
+    """
     if tasks is None:
         tasks = []
     elif isinstance(tasks, Task):
@@ -934,7 +1063,7 @@ def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> in
             args.only_incomplete = True
         g = adgraph.Graph()
         g.show_nodes(
-            to_asciidag(
+            _to_asciidag(
                 tasks,
                 only_incomplete=args.only_incomplete,
                 print_commands = args.commands))
