@@ -12,9 +12,9 @@ else
 fi
 
 pushd doc
-make html
+make singlehtml
 popd
 
 rm -r docs
 mkdir docs
-mv doc/_build/html/* ./docs/
+mv doc/_build/singlehtml/* ./docs/
