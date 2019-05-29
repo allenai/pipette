@@ -9,12 +9,14 @@ straight.
 import atexit
 import base64
 import importlib
+import inspect
 import io
 import itertools
 import logging
 import mmh3
 import random
 import re
+import regex
 import string
 import tempfile
 import zlib
@@ -50,34 +52,50 @@ class DillFormat(Format[Any]):
     This format has special handling for iterable types. It takes care not to
     read the entire iterable into memory during either reading or writing.
 
-    To use this format, simply refer to ``pipette.dillFormat``.
-    """
+    To use this format, simply refer to ``pipette.dillFormat``."""
 
     SUFFIX = ".dill"
 
     def read(self, input: BinaryIO) -> Any:
-        first = dill.load(input)
-        try:
-            second = dill.load(input)
-        except EOFError:
-            return first
+        return dill.load(input)
 
-        yield first
-        yield second
+    def write(self, input: Any, output: BinaryIO) -> None:
+        dill.dump(input, output)
+
+dillFormat = DillFormat()
+
+
+class DillIterableFormat(Format[Iterable[Any]]):
+    SUFFIX = ".dill"
+
+    def read(self, input: BinaryIO) -> Iterable[Any]:
         while True:
             try:
                 yield dill.load(input)
             except EOFError:
                 break
 
-    def write(self, input: Any, output: BinaryIO) -> None:
-        if hasattr(input, "__next__"):
-            for item in input:
-                dill.dump(item, output)
-        else:
-            dill.dump(input, output)
+    def write(self, input: Iterable[Any], output: BinaryIO) -> None:
+        for item in input:
+            dill.dump(item, output)
 
-dillFormat = DillFormat()
+dillIterableFormat = DillIterableFormat()
+
+class GzFormat(Format[Any]):
+    def __init__(self, inner_format: Format):
+        self.inner_format = inner_format
+        self.SUFFIX = inner_format.SUFFIX + ".gz"
+
+    def read(self, input: BinaryIO):
+        input = gzip.GzipFile(mode="rb", fileobj=input)
+        return self.inner_format.read(input)
+
+    def write(self, input: Any, output: BinaryIO):
+        output = gzip.GzipFile(mode="wb", fileobj=output)
+        self.inner_format.write(input, output)
+
+dillGzFormat = GzFormat(dillFormat)
+dillIterableGzFormat = GzFormat(dillIterableFormat)
 
 import json
 class JsonFormat(Format[Any]):
@@ -88,7 +106,6 @@ class JsonFormat(Format[Any]):
 
     To use this format, simply refer to ``pipette.jsonFormat``.
     """
-
 
     SUFFIX = ".json"
 
@@ -123,11 +140,26 @@ class JsonlFormat(Format[Iterable[Any]]):
 jsonlFormat = JsonlFormat()
 
 import gzip
-class JsonlGzFormat(Format[Iterable[Any]]):
+class JsonGzFormat(Format[Any]):
     """A format that serializes lists of Python objects to JSON, one line per item, and compresses the file.
 
     To use this format, simply refer to ``pipette.jsonlGzFormat``.
     """
+    SUFFIX = ".json.gz"
+
+    def read(self, input: BinaryIO) -> Any:
+        input = gzip.GzipFile(mode="rb", fileobj=input)
+        input = io.TextIOWrapper(input, encoding="UTF-8")
+        return json.load(input)
+
+    def write(self, input: Any, output: BinaryIO) -> None:
+        output = gzip.GzipFile(mode="wb", fileobj=output)
+        output = io.TextIOWrapper(output, encoding="UTF-8")
+        json.dump(input, output)
+
+jsonGzFormat = JsonGzFormat()
+
+class JsonlGzFormat(Format[Iterable[Any]]):
     SUFFIX = ".jsonl.gz"
 
     def read(self, input: BinaryIO) -> Iterable[Any]:
@@ -144,6 +176,24 @@ class JsonlGzFormat(Format[Iterable[Any]]):
             output.flush()
 
 jsonlGzFormat = JsonlGzFormat()
+
+class TsvFormat(Format[Iterable[List[str]]]):
+    SUFFIX = ".tsv"
+
+    def read(self, input: BinaryIO) -> Iterable[List[str]]:
+        input = io.TextIOWrapper(input, encoding="UTF-8")
+        for line in input:
+            yield line.split("\t")
+        return json.load(input)
+
+    def write(self, input: Iterable[List[str]], output: BinaryIO) -> None:
+        output = io.TextIOWrapper(output, encoding="UTF-8")
+        for line in input:
+            output.write("\t".join(line))
+            output.write("\n")
+
+tsvFormat = TsvFormat()
+tsvGzFormat = GzFormat(tsvFormat)
 
 
 def random_string(length: int = 16) -> str:
@@ -447,7 +497,7 @@ class BeakerStore(Store):
                 local_path.unlink()
 
 
-class _TaskStub(NamedTuple):
+class TaskStub(NamedTuple):
     """We use this to cut off the dependency chain for tasks that are already done."""
     file_name: str
     format: Format
@@ -462,7 +512,7 @@ class _NamedTuplePickler(dill.Pickler):
     """Using dill, the named tuples we use become huge, so we use this custom pickler to make them
     smaller."""
     def persistent_id(self, obj):
-        if obj == _TaskStub:
+        if obj == TaskStub:
             return 1
         elif obj == _SerializedTaskTuple:
             return 2
@@ -474,7 +524,7 @@ class _NamedTupleUnpickler(dill.Unpickler):
     smaller."""
     def persistent_load(self, pid):
         if pid == 1:
-            return _TaskStub
+            return TaskStub
         elif pid == 2:
             return _SerializedTaskTuple
         else:
@@ -488,8 +538,21 @@ def _is_named_tuple_fn(cls) -> Callable[[Any], bool]:
             return False
         return all((hasattr(o, field) for field in cls._fields))   # If it quacks like a duck ...
     return inner_is_task_stub
-_is_task_stub = _is_named_tuple_fn(_TaskStub)
+_is_task_stub = _is_named_tuple_fn(TaskStub)
 _is_serialized_task_tuple = _is_named_tuple_fn(_SerializedTaskTuple)
+
+def _get_module(o: Any) -> str:
+    """Returns the module that the goven object is defined in. Attempts to fix things when the
+    module name is '__main__'."""
+    result = o.__class__.__module__
+    if result != '__main__':
+        return result
+    p = Path(inspect.getmodule(o).__file__)
+    filename = p.parts[-1]
+    if filename.endswith(".py"):
+        filename = filename[:-3]
+    p = list(p.parts[:-1]) + [filename]
+    return ".".join(p)
 
 _version_tag_re = re.compile("""^[a-zA-Z0-9]+$""")
 O = TypeVar('O')
@@ -585,6 +648,10 @@ class Task(Generic[O]):
         assert "store" not in kwargs
         self.inputs = {**self.DEFAULTS, **kwargs}
 
+        # check the format
+        if not isinstance(self.OUTPUT_FORMAT, Format):
+            raise ValueError(f"Output format for {self.__class__.__name__} is not an instance of Format.")
+
         # check the arguments
         extra_arguments = self.inputs.keys() - self.INPUTS.keys()
         if len(extra_arguments) > 0:
@@ -599,11 +666,21 @@ class Task(Generic[O]):
             try:
                 typeguard.check_type(fancy_name, self.inputs[name], t)
             except TypeError as e:
-                # Tasks can be replaced by task stubs. That's their whole point.
-                if "must be pipette.Task; got __main__.TaskStub instead" in str(e):
-                    pass    # It's too hard to check this case properly.
-                elif "must be pipette.Task; got pipette.TaskStub instead" in str(e):
-                    pass    # It's too hard to check this case properly.
+                # It's too hard to check this case properly, so we do this regex bonanza.
+                message = str(e)
+                message = message.replace("__main__.TaskStub", "pipette.TaskStub")
+                message = message.replace("__main__.Task", "pipette.Task")
+                match = regex.search(""" must be (?:one of \((.*)\)|(pipette\.Task)); got pipette\.TaskStub instead""", message)
+                if match is None:
+                    raise
+                match = match.groups()
+                expected_types = []
+                if match[0] is not None:
+                    expected_types.extend(t.strip() for t in match[0].split(","))
+                if match[1] is not None:
+                    expected_types.extend(t.strip() for t in match[1].split(","))
+                if "pipette.Task" in expected_types or "Task" in expected_types:
+                    pass
                 else:
                     raise
 
@@ -614,11 +691,7 @@ class Task(Generic[O]):
         rudimentary type checking on these inputs before passing them to this function."""
         raise NotImplementedError()
 
-    def results(self):
-        """Returns the results of this task.
-
-        This also runs all tasks that this task depends on, and caches all results, including the
-        result from this task itself."""
+    def printable_inputs(self) -> str:
         printable_inputs = []
         for key, o in self.inputs.items():
             if hasattr(o, "__len__") and len(o) > 1000:
@@ -629,10 +702,16 @@ class Task(Generic[O]):
                     r = r[:150-4] + " ..."
                 printable_inputs.append(f"\t{key}: {r}")
         printable_inputs = "\n".join(printable_inputs)
+        return printable_inputs
 
+    def results(self):
+        """Returns the results of this task.
+
+        This also runs all tasks that this task depends on, and caches all results, including the
+        result from this task itself."""
         output_name = self.output_name()
         if self.store.exists(output_name):
-            _logger.info(f"Reading {self.output_name()} with the following inputs:\n{printable_inputs}")
+            _logger.info(f"Reading {self.output_name()} with the following inputs:\n{self.printable_inputs()}")
             return self.store.read(output_name, self.OUTPUT_FORMAT)
 
         def replace_tasks_with_results(o: Any):
@@ -650,7 +729,7 @@ class Task(Generic[O]):
                 return o
         inputs = replace_tasks_with_results(self.inputs)
 
-        _logger.info(f"Computing {self.output_name()} with the following inputs:\n{printable_inputs}")
+        _logger.info(f"Computing {self.output_name()} with the following inputs:\n{self.printable_inputs()}")
         result = self.do(**inputs)
         _logger.info(f"Writing {self.output_name()}")
         self.store.write(output_name, result, self.OUTPUT_FORMAT)
@@ -742,6 +821,18 @@ class Task(Generic[O]):
             seen.add(output_name)
             yield d
 
+    def recursive_unique_dependencies(self) -> Iterable['Task']:
+        seen = set()
+        tasks = list(self.flat_unique_dependencies())
+        while len(tasks) > 0:
+            t = tasks.pop()
+            output_name = t.output_name()
+            if output_name in seen:
+                continue
+            seen.add(output_name)
+            yield t
+            tasks.extend(t.flat_unique_dependencies())
+
     def serialized_task_config(self) -> str:
         """Returns a serialized configuration of this task.
 
@@ -755,12 +846,12 @@ class Task(Generic[O]):
 
         # some machinery to replace tasks with task stubs
         output_name_to_task_stub = {}
-        def stub_for_task(t: Task) -> _TaskStub:
+        def stub_for_task(t: Task) -> TaskStub:
             nonlocal output_name_to_task_stub
             try:
                 return output_name_to_task_stub[t.output_name()]
             except KeyError:
-                task_stub = _TaskStub(t.output_name(), t.OUTPUT_FORMAT)
+                task_stub = TaskStub(t.output_name(), t.OUTPUT_FORMAT)
                 output_name_to_task_stub[t.output_name()] = task_stub
                 return task_stub
 
@@ -772,7 +863,7 @@ class Task(Generic[O]):
                 return output_name_to_tuple[t.output_name()]
             except KeyError:
                 tuple = _SerializedTaskTuple(
-                    t.__class__.__module__,
+                    _get_module(t),
                     t.__class__.__name__,
                     t.VERSION_TAG,
                     replace_tasks_with_stubs_and_tuples(t.inputs)
@@ -804,7 +895,7 @@ class Task(Generic[O]):
         result = zlib.compress(result, 9)
         result = base64.urlsafe_b64encode(result)
         result = result.decode("UTF-8")
-        return f"{self.__class__.__module__}.{self.__class__.__name__}-{self.VERSION_TAG}({result})"
+        return f"{_get_module(self)}.{self.__class__.__name__}-{self.VERSION_TAG}({result})"
 
 _task_config_re = re.compile("""^([.a-zA-Z0-9_]+)-([a-zA-Z0-9]+)\(([-a-zA-Z0-9_=]+)\)$""")
 def create_from_serialized_task_config(task_config: str) -> Task:
@@ -1040,9 +1131,11 @@ def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> in
     graph_parser.add_argument("--commands", default=False, action="store_true", help="Print commands, not task names")
     graph_parser.add_argument("--runnable", "-r", default=False, action="store_true", help="Combination of --commands and --only-incomplete")
 
-    for subparser in [run_parser, graphviz_parser, graph_parser, runnable_parser]:
+    info_parser = subparsers.add_parser("info", description="Print info about a task")
+
+    for subparser in [run_parser, graphviz_parser, graph_parser, runnable_parser, info_parser]:
         subparser.add_argument(
-            "serialized_task_configs",
+            "task_specs",
             type=str,
             nargs="*",
             default=[],
@@ -1052,8 +1145,19 @@ def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> in
     if args.command is None:
         parser.print_usage()
         return 1
-    if len(args.serialized_task_configs) > 0:
-        tasks = map(create_from_serialized_task_config, args.serialized_task_configs)
+    if len(args.task_specs) > 0:
+        task_name_to_task = {}
+        for t in tasks:
+            task_name_to_task[t.output_name()] = t
+            for d in t.recursive_unique_dependencies():
+                task_name_to_task[d.output_name()] = d
+        tasks = []
+        for spec in args.task_specs:
+            task = task_name_to_task.get(spec)
+            if task is not None:
+                tasks.append(task)
+            else:
+                tasks.append(create_from_serialized_task_config(spec))
 
     if args.command == "graphviz":
         print(to_graphviz(tasks))
@@ -1074,6 +1178,10 @@ def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> in
         for task in tasks:
             task.results()
             print(task.output_url())
+    elif args.command == "info":
+        for task in tasks:
+            print(f"Task {task.output_name()} has the following inputs:")
+            print(task.printable_inputs())
     else:
         raise ValueError("No command specified")
 
@@ -1086,6 +1194,7 @@ if __name__ == "__main__":
 # This is specified explicitly so that the order in the docs makes sense.
 __all__ = [
     "Task",
+    "TaskStub",
     "create_from_serialized_task_config",
     "to_graphviz",
     "to_commands",
@@ -1096,8 +1205,14 @@ __all__ = [
     "BeakerStore",
     "Format",
     "DillFormat",
+    "dillFormat",
+    "DillIterableFormat",
+    "dillIterableFormat",
     "JsonFormat",
+    "jsonFormat",
     "JsonlFormat",
+    "jsonlFormat",
     "JsonlGzFormat",
+    "jsonlGzFormat",
     "random_string"
 ]
