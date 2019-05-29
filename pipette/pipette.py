@@ -809,6 +809,21 @@ class Task(Generic[O]):
             for key, value in self.inputs.items()
         }
 
+    def incomplete_dependencies(self) -> Dict[str, List['Task']]:
+        result = {}
+        for key, tasks in self.dependencies().items():
+            tasks = [t for t in tasks if not t.output_exists()]
+            if len(tasks) > 0:
+                result[key] = tasks
+        return result
+
+    def incomplete_dependency_count(self) -> int:
+        return len({
+            t.output_name()
+            for ts in self.incomplete_dependencies().values()
+            for t in ts
+        })
+
     def flat_unique_dependencies(self) -> Iterable['Task']:
         """Returns an iterable of tasks that this task depends on.
 
@@ -997,14 +1012,13 @@ from .asciidag import node as adnode
 def _to_asciidag(
     task_or_tasks: Union[Task, List[Task]],
     *,
-    only_incomplete: bool = False,
-    print_commands: bool = False
+    incomplete: bool = False
 ) -> List[adnode.Node]:
     """Returns the task graph in ASCIIDag form."""
     if isinstance(task_or_tasks, Task):
         task_or_tasks = [task_or_tasks]
     tasks = task_or_tasks
-    if only_incomplete:
+    if incomplete:
         tasks = [t for t in tasks if not t.output_exists()]
 
     output_name_to_node = {}
@@ -1018,10 +1032,7 @@ def _to_asciidag(
                 tags.add("complete")
             if t.output_locked():
                 tags.add("locked")
-            if print_commands:
-                text = f'python -m pipette run "{t.serialized_task_config()}"'
-            else:
-                text = t.output_name()
+            text = t.output_name()
             if len(tags) > 0:
                 text += f" ({', '.join(tags)})"
             node = adnode.Node(
@@ -1029,72 +1040,48 @@ def _to_asciidag(
                 parents=[
                     node_for_task(dep)
                     for dep in t.flat_unique_dependencies()
-                    if (not only_incomplete) or not dep.output_exists()
+                    if (not incomplete) or not dep.output_exists()
                 ]
             )
             output_name_to_node[t.output_name()] = node
             return node
     return [node_for_task(t) for t in tasks]
 
-def to_commands(
-    task_or_tasks: Union[Task, List[Task]],
-    *,
-    only_runnable_now: bool = False
-) -> Iterable[str]:
-    """Returns a list of tasks in a form that can be copy-and-pasted onto a command line.
+def sort_tasks(tasks: Iterable[Task]) -> List[Task]:
+    """Sorts tasks by their dependencies, so that dependencies appear before dependent tasks.
 
-    If ``only_runnable_now`` is True, this only returns tasks where all their dependencies are
-    satisfied."""
-    if isinstance(task_or_tasks, Task):
-        task_or_tasks = [task_or_tasks]
-    tasks = task_or_tasks
+    As long as all dependencies are in the list of tasks given, you could run the tasks in the order
+    they come out of this function, and every task would have every dependency resolved.
+    """
+    task_names_we_want = set()
+    task_name_to_task = {}  # This will contain all tasks, including dependencies.
+    for t in tasks:
+        task_names_we_want.add(t.output_name())
+        task_name_to_task[t.output_name()] = t
+        for d in t.recursive_unique_dependencies():
+            task_name_to_task[d.output_name()] = d
 
-    name_to_task = {}
-    tasks_done = set()
-    tasks_waiting = set()
+    todo_task_names = set(task_name_to_task.keys())
+    done_task_names = []
 
-    # fill up tasks_done and tasks_waiting
-    while len(tasks) > 0:
-        t = tasks.pop()
-        t_name = t.output_name()
-        if t_name in name_to_task:
-            continue
-        name_to_task[t_name] = t
+    while len(todo_task_names) > 0:
+        doing_task_names = set()
+        for doing_task_name in todo_task_names:
+            dependencies = {
+                dt.output_name()
+                for dts in task_name_to_task[doing_task_name].incomplete_dependencies().values()
+                for dt in dts
+                if dt.output_name() not in done_task_names
+            }
+            if len(dependencies) <= 0:
+                doing_task_names.add(doing_task_name)
+        assert len(doing_task_names) > 0    # If this is 0, we're looping infinitely.
+        todo_task_names -= doing_task_names
+        doing_task_names = list(doing_task_names)
+        doing_task_names.sort() # sort by name as a fallback
+        done_task_names.extend(doing_task_names)
 
-        if t.output_exists():
-            tasks_done.add(t_name)
-        else:
-            tasks_waiting.add(t_name)
-            tasks.extend(t.flat_unique_dependencies())
-
-    while len(tasks_waiting) > 0:
-        # find all the tasks that are ready
-        tasks_ready = set()
-        for t in tasks_waiting:
-            dependencies = {d.output_name() for d in name_to_task[t].flat_unique_dependencies()}
-            if len(dependencies) == len(dependencies & tasks_done):
-                tasks_ready.add(t)
-
-        # print all the tasks that are ready
-        assert len(tasks_ready & tasks_done) <= 0
-        for t in tasks_ready:
-            suffix = ""
-            if name_to_task[t].output_locked():
-                suffix = " (locked)"
-            yield f'python -m pipette run "{name_to_task[t].serialized_task_config()}"{suffix}'
-
-        assert len(tasks_ready) > 0
-        if only_runnable_now:
-            return
-        else:
-            yield "# --"
-
-        tasks_done |= tasks_ready
-        tasks_waiting -= tasks_ready
-
-def runnable_commands(task_or_tasks: Union[Task, Iterable[Task]]) -> Iterable[str]:
-    """Returns a list of tasks in a form that can be copy-and-pasted onto a command line."""
-    yield from to_commands(task_or_tasks, only_runnable_now=True)
+    return [task_name_to_task[n] for n in done_task_names if n in task_names_we_want]
 
 def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> int:
     """A main function that can operate on lists of tasks.
@@ -1120,20 +1107,27 @@ def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> in
     parser = argparse.ArgumentParser()
 
     subparsers = parser.add_subparsers(title="commands", dest="command")
-    run_parser = subparsers.add_parser("run", description="Run a task, or multiple tasks")
-    graphviz_parser = subparsers.add_parser("graphviz", description="Print a graph description in dot format")
 
-    runnable_parser = subparsers.add_parser("runnable", description="Print descriptions of all currently runnable tasks")
-    runnable_parser.add_argument("--all", "-a", default=False, action="store_true")
+    run_parser = subparsers.add_parser("run", description="Run a task, or multiple tasks")
+    run_parser.add_argument("--incomplete", default=False, action="store_true", help="Only run incomplete tasks")
+    run_parser.add_argument("--runnable", default=False, action="store_true", help="Only run tasks with no incomplete dependencies")
+
+    graphviz_parser = subparsers.add_parser("graphviz", description="Print a graph description in dot format")
+    graphviz_parser.add_argument("--incomplete", default=False, action="store_true", help="Only print incomplete tasks")
 
     graph_parser = subparsers.add_parser("graph", description="Print a graph description in git format")
-    graph_parser.add_argument("--only-incomplete", default=False, action="store_true", help="Only print incomplete tasks")
-    graph_parser.add_argument("--commands", default=False, action="store_true", help="Print commands, not task names")
-    graph_parser.add_argument("--runnable", "-r", default=False, action="store_true", help="Combination of --commands and --only-incomplete")
+    graph_parser.add_argument("--incomplete", default=False, action="store_true", help="Only print incomplete tasks")
+
+    list_parser = subparsers.add_parser("list", description="List tasks")
+    list_parser.add_argument("--incomplete", default=False, action="store_true", help="Only list incomplete tasks")
+    list_parser.add_argument("--runnable", default=False, action="store_true", help="Only list tasks with no incomplete dependencies")
+    list_parser.add_argument("--commands", default=False, action="store_true", help="List commands, not task names")
 
     info_parser = subparsers.add_parser("info", description="Print info about a task")
+    info_parser.add_argument("--incomplete", default=False, action="store_true", help="Only print incomplete tasks")
+    info_parser.add_argument("--runnable", default=False, action="store_true", help="Only print tasks with no incomplete dependencies")
 
-    for subparser in [run_parser, graphviz_parser, graph_parser, runnable_parser, info_parser]:
+    for subparser in [run_parser, graphviz_parser, graph_parser, list_parser, info_parser]:
         subparser.add_argument(
             "task_specs",
             type=str,
@@ -1145,12 +1139,13 @@ def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> in
     if args.command is None:
         parser.print_usage()
         return 1
+
+    task_name_to_task = {}  # This will contain all tasks, including dependencies.
+    for t in tasks:
+        task_name_to_task[t.output_name()] = t
+        for d in t.recursive_unique_dependencies():
+            task_name_to_task[d.output_name()] = d
     if len(args.task_specs) > 0:
-        task_name_to_task = {}
-        for t in tasks:
-            task_name_to_task[t.output_name()] = t
-            for d in t.recursive_unique_dependencies():
-                task_name_to_task[d.output_name()] = d
         tasks = []
         for spec in args.task_specs:
             task = task_name_to_task.get(spec)
@@ -1158,28 +1153,49 @@ def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> in
                 tasks.append(task)
             else:
                 tasks.append(create_from_serialized_task_config(spec))
+    if hasattr(args, "incomplete") and args.incomplete:
+        tasks = [t for t in tasks if not t.output_exists()]
+        task_name_to_task = {
+            name : t
+            for name, t in task_name_to_task.items()
+            if not t.output_exists()
+        }
+    if hasattr(args, "runnable") and args.runnable:
+        tasks = [t for t in tasks if t.incomplete_dependency_count() <= 0]
+        task_name_to_task = {
+            name : t
+            for name, t in task_name_to_task.items()
+            if t.incomplete_dependency_count() <= 0
+        }
+
+    tasks = sort_tasks(tasks)
 
     if args.command == "graphviz":
         print(to_graphviz(tasks))
     elif args.command == "graph":
-        if args.runnable:
-            args.commands = True
-            args.only_incomplete = True
         g = adgraph.Graph()
-        g.show_nodes(
-            _to_asciidag(
-                tasks,
-                only_incomplete=args.only_incomplete,
-                print_commands = args.commands))
-    elif args.command == "runnable":
-        for serialized_command in to_commands(tasks, only_runnable_now=not args.all):
-            print(serialized_command)
+        g.show_nodes(_to_asciidag(tasks, incomplete=args.incomplete))
+    elif args.command == "list":
+        for task in sort_tasks(task_name_to_task.values()):
+            tags = set()
+            if task.output_exists():
+                tags.add("complete")
+            if task.output_locked():
+                tags.add("locked")
+            if len(tags) > 0:
+                suffix = " (" + ", ".join(tags) + ")"
+            else:
+                suffix = ""
+            if args.commands:
+                print("python -m pipette run " + task.serialized_task_config() + suffix)
+            else:
+                print(task.output_name() + suffix)
     elif args.command == "run":
         for task in tasks:
             task.results()
             print(task.output_url())
     elif args.command == "info":
-        for task in tasks:
+        for task in sort_tasks(task_name_to_task.values()):
             print(f"Task {task.output_name()} has the following inputs:")
             print(task.printable_inputs())
     else:
@@ -1197,8 +1213,6 @@ __all__ = [
     "TaskStub",
     "create_from_serialized_task_config",
     "to_graphviz",
-    "to_commands",
-    "runnable_commands",
     "main",
     "Store",
     "LocalStore",
