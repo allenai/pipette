@@ -631,6 +631,7 @@ class Task(Generic[O]):
             except TypeError as e:
                 # It's too hard to check this case properly, so we do this regex bonanza.
                 message = str(e)
+                message = message.replace("pipette.pipette.", "pipette.")   # WTF?
                 message = message.replace("__main__.TaskStub", "pipette.TaskStub")
                 message = message.replace("__main__.Task", "pipette.Task")
                 match = regex.search(""" must be (?:one of \((.*)\)|(pipette\.Task)); got pipette\.TaskStub instead""", message)
