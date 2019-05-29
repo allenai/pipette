@@ -658,23 +658,23 @@ JsonlFormat or JsonlGzFormat.</p>
 </dd></dl>
 
 <dl class="class">
-<dt id="pipette.pipette.JsonlGzFormat">
-<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">JsonlGzFormat</code><a class="headerlink" href="#pipette.pipette.JsonlGzFormat" title="Permalink to this definition">¶</a></dt>
+<dt id="pipette.pipette.TsvFormat">
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">TsvFormat</code><a class="headerlink" href="#pipette.pipette.TsvFormat" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#pipette.pipette.Format" title="pipette.pipette.Format"><code class="xref py py-class docutils literal notranslate"><span class="pre">pipette.pipette.Format</span></code></a></p>
 <dl class="attribute">
-<dt id="pipette.pipette.JsonlGzFormat.SUFFIX">
-<code class="descname">SUFFIX</code><em class="property"> = '.jsonl.gz'</em><a class="headerlink" href="#pipette.pipette.JsonlGzFormat.SUFFIX" title="Permalink to this definition">¶</a></dt>
+<dt id="pipette.pipette.TsvFormat.SUFFIX">
+<code class="descname">SUFFIX</code><em class="property"> = '.tsv'</em><a class="headerlink" href="#pipette.pipette.TsvFormat.SUFFIX" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="pipette.pipette.JsonlGzFormat.read">
-<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Iterable[Any]<a class="headerlink" href="#pipette.pipette.JsonlGzFormat.read" title="Permalink to this definition">¶</a></dt>
+<dt id="pipette.pipette.TsvFormat.read">
+<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Iterable[List[str]]<a class="headerlink" href="#pipette.pipette.TsvFormat.read" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reads input, parses it, and returns it.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="pipette.pipette.JsonlGzFormat.write">
-<code class="descname">write</code><span class="sig-paren">(</span><em>input: Iterable[Any], output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#pipette.pipette.JsonlGzFormat.write" title="Permalink to this definition">¶</a></dt>
+<dt id="pipette.pipette.TsvFormat.write">
+<code class="descname">write</code><span class="sig-paren">(</span><em>input: Iterable[List[str]], output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#pipette.pipette.TsvFormat.write" title="Permalink to this definition">¶</a></dt>
 <dd><p>Writes the given input out to disk.</p>
 </dd></dl>
 
