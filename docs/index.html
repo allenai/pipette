@@ -266,6 +266,16 @@ rudimentary type checking on these inputs before passing them to this function.<
 </dd></dl>
 
 <dl class="method">
+<dt id="pipette.pipette.Task.incomplete_dependencies">
+<code class="descname">incomplete_dependencies</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Dict[str, List[pipette.pipette.Task]]<a class="headerlink" href="#pipette.pipette.Task.incomplete_dependencies" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pipette.pipette.Task.incomplete_dependency_count">
+<code class="descname">incomplete_dependency_count</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#pipette.pipette.Task.incomplete_dependency_count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="pipette.pipette.Task.output_exists">
 <code class="descname">output_exists</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#pipette.pipette.Task.output_exists" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns whether or not the output for this task already exists.</p>
@@ -350,20 +360,6 @@ the task there.</p>
 <dd><p>Returns the complete task graph, in Dot format, ready for Graphviz.</p>
 <p>You can paste the results into <a class="reference external" href="http://www.webgraphviz.com">http://www.webgraphviz.com</a> to see the graph in rendered
 form.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="pipette.pipette.to_commands">
-<code class="descclassname">pipette.pipette.</code><code class="descname">to_commands</code><span class="sig-paren">(</span><em>task_or_tasks: Union[pipette.pipette.Task, List[pipette.pipette.Task]], *, only_runnable_now: bool = False</em><span class="sig-paren">)</span> &#x2192; Iterable[str]<a class="headerlink" href="#pipette.pipette.to_commands" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of tasks in a form that can be copy-and-pasted onto a command line.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">only_runnable_now</span></code> is True, this only returns tasks where all their dependencies are
-satisfied.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="pipette.pipette.runnable_commands">
-<code class="descclassname">pipette.pipette.</code><code class="descname">runnable_commands</code><span class="sig-paren">(</span><em>task_or_tasks: Union[pipette.pipette.Task, Iterable[pipette.pipette.Task]]</em><span class="sig-paren">)</span> &#x2192; Iterable[str]<a class="headerlink" href="#pipette.pipette.runnable_commands" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of tasks in a form that can be copy-and-pasted onto a command line.</p>
 </dd></dl>
 
 <dl class="function">
