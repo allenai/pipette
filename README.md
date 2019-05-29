@@ -11,4 +11,4 @@ You can get started by following the example at [tests/premierleague.py](tests/p
 
 Detailed documentation is available at https://allenai.github.io/pipette/.
 
-Add pipette to your own project with `pip install https://github.com/allenai/pipette/releases/download/v1.1.0/pipette-1.1.0-py3-none-any.whl`.
+Add pipette to your own project with `pip install https://github.com/allenai/pipette/releases/download/v1.2.0/pipette-1.2.0-py3-none-any.whl`.
