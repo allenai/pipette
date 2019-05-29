@@ -7,4 +7,8 @@ workflow, so that you can run different steps on different machines, locally, or
 no longer need to track files in spreadsheets, and invent clever naming schemes to keep everything
 straight.
 
+You can get started by following the example at [tests/premierleague.py](tests/premierleague.py).
+
+Detailed documentation is available at https://allenai.github.io/pipette/.
+
 Add pipette to your own project with `pip install https://github.com/allenai/pipette/releases/download/v1.0.0/pipette-1.0.0-py3-none-any.whl`.
