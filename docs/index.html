@@ -155,7 +155,7 @@ no longer need to track files in spreadsheets, and invent clever naming schemes 
 straight.</p>
 <dl class="class">
 <dt id="pipette.pipette.Task">
-<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">Task</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pipette/pipette.html#Task"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">Task</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#pipette.pipette.Task" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">typing.Generic</span></code></p>
 <p>The base class for pipette Tasks.</p>
 <p>When you are writing your own tasks, at a minimum, override <code class="docutils literal notranslate"><span class="pre">VERSION_TAG</span></code> and
@@ -237,7 +237,7 @@ iteration.</p>
 
 <dl class="method">
 <dt id="pipette.pipette.Task.dependencies">
-<code class="descname">dependencies</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Dict[str, List[pipette.pipette.Task]]<a class="reference internal" href="_modules/pipette/pipette.html#Task.dependencies"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task.dependencies" title="Permalink to this definition">¶</a></dt>
+<code class="descname">dependencies</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Dict[str, List[pipette.pipette.Task]]<a class="headerlink" href="#pipette.pipette.Task.dependencies" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns all tasks that this task depends on.</p>
 <p>This is extracted from the inputs given to the task.</p>
 <p>Results come back in a dictionary mapping the name of the input parameter to a list of
@@ -246,7 +246,7 @@ tasks that are specified under that name. The same task might show up multiple t
 
 <dl class="method">
 <dt id="pipette.pipette.Task.do">
-<code class="descname">do</code><span class="sig-paren">(</span><em>**inputs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pipette/pipette.html#Task.do"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task.do" title="Permalink to this definition">¶</a></dt>
+<code class="descname">do</code><span class="sig-paren">(</span><em>**inputs</em><span class="sig-paren">)</span><a class="headerlink" href="#pipette.pipette.Task.do" title="Permalink to this definition">¶</a></dt>
 <dd><p>Do the actual work of the task.</p>
 <p>This receives the parameters that were defined in the INPUTS dict. Pipette performs some
 rudimentary type checking on these inputs before passing them to this function.</p>
@@ -254,46 +254,56 @@ rudimentary type checking on these inputs before passing them to this function.<
 
 <dl class="method">
 <dt id="pipette.pipette.Task.flat_unique_dependencies">
-<code class="descname">flat_unique_dependencies</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Iterable[pipette.pipette.Task]<a class="reference internal" href="_modules/pipette/pipette.html#Task.flat_unique_dependencies"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task.flat_unique_dependencies" title="Permalink to this definition">¶</a></dt>
+<code class="descname">flat_unique_dependencies</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Iterable[pipette.pipette.Task]<a class="headerlink" href="#pipette.pipette.Task.flat_unique_dependencies" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns an iterable of tasks that this task depends on.</p>
 <p>This is extracted from the inputs given to the task.</p>
 </dd></dl>
 
 <dl class="staticmethod">
 <dt id="pipette.pipette.Task.hash_object">
-<em class="property">static </em><code class="descname">hash_object</code><span class="sig-paren">(</span><em>o: Any</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/pipette/pipette.html#Task.hash_object"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task.hash_object" title="Permalink to this definition">¶</a></dt>
+<em class="property">static </em><code class="descname">hash_object</code><span class="sig-paren">(</span><em>o: Any</em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.Task.hash_object" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a 16-character hash code of arbitrary Python objects.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.Task.output_exists">
-<code class="descname">output_exists</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/pipette/pipette.html#Task.output_exists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task.output_exists" title="Permalink to this definition">¶</a></dt>
+<code class="descname">output_exists</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#pipette.pipette.Task.output_exists" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns whether or not the output for this task already exists.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.Task.output_locked">
-<code class="descname">output_locked</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/pipette/pipette.html#Task.output_locked"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task.output_locked" title="Permalink to this definition">¶</a></dt>
+<code class="descname">output_locked</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#pipette.pipette.Task.output_locked" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns whether or not the output for this task is locked.</p>
 <p>Outputs should only be locked while a process is working on producing this output.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.Task.output_name">
-<code class="descname">output_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pipette/pipette.html#Task.output_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task.output_name" title="Permalink to this definition">¶</a></dt>
+<code class="descname">output_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pipette.pipette.Task.output_name" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the name of the results of this task.</p>
 <p>This works whether or not the task has been completed yet.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.Task.output_url">
-<code class="descname">output_url</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/pipette/pipette.html#Task.output_url"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task.output_url" title="Permalink to this definition">¶</a></dt>
+<code class="descname">output_url</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.Task.output_url" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a copy-and-paste friendly rendition of the output file of this task.</p>
 </dd></dl>
 
 <dl class="method">
+<dt id="pipette.pipette.Task.printable_inputs">
+<code class="descname">printable_inputs</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.Task.printable_inputs" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pipette.pipette.Task.recursive_unique_dependencies">
+<code class="descname">recursive_unique_dependencies</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Iterable[pipette.pipette.Task]<a class="headerlink" href="#pipette.pipette.Task.recursive_unique_dependencies" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="pipette.pipette.Task.results">
-<code class="descname">results</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pipette/pipette.html#Task.results"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task.results" title="Permalink to this definition">¶</a></dt>
+<code class="descname">results</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pipette.pipette.Task.results" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the results of this task.</p>
 <p>This also runs all tasks that this task depends on, and caches all results, including the
 result from this task itself.</p>
@@ -301,7 +311,7 @@ result from this task itself.</p>
 
 <dl class="method">
 <dt id="pipette.pipette.Task.serialized_task_config">
-<code class="descname">serialized_task_config</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/pipette/pipette.html#Task.serialized_task_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Task.serialized_task_config" title="Permalink to this definition">¶</a></dt>
+<code class="descname">serialized_task_config</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.Task.serialized_task_config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a serialized configuration of this task.</p>
 <p>You can use the result of this to transfer the input parameters to another machine and run
 the task there.</p>
@@ -309,15 +319,34 @@ the task there.</p>
 
 </dd></dl>
 
+<dl class="class">
+<dt id="pipette.pipette.TaskStub">
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">TaskStub</code><a class="headerlink" href="#pipette.pipette.TaskStub" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></p>
+<p>We use this to cut off the dependency chain for tasks that are already done.</p>
+<dl class="attribute">
+<dt id="pipette.pipette.TaskStub.file_name">
+<code class="descname">file_name</code><a class="headerlink" href="#pipette.pipette.TaskStub.file_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 0</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="pipette.pipette.TaskStub.format">
+<code class="descname">format</code><a class="headerlink" href="#pipette.pipette.TaskStub.format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Alias for field number 1</p>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="function">
 <dt id="pipette.pipette.create_from_serialized_task_config">
-<code class="descclassname">pipette.pipette.</code><code class="descname">create_from_serialized_task_config</code><span class="sig-paren">(</span><em>task_config: str</em><span class="sig-paren">)</span> &#x2192; pipette.pipette.Task<a class="reference internal" href="_modules/pipette/pipette.html#create_from_serialized_task_config"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.create_from_serialized_task_config" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">pipette.pipette.</code><code class="descname">create_from_serialized_task_config</code><span class="sig-paren">(</span><em>task_config: str</em><span class="sig-paren">)</span> &#x2192; pipette.pipette.Task<a class="headerlink" href="#pipette.pipette.create_from_serialized_task_config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates a task using the serialized form from Task.serialized_task_config().</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="pipette.pipette.to_graphviz">
-<code class="descclassname">pipette.pipette.</code><code class="descname">to_graphviz</code><span class="sig-paren">(</span><em>task_or_tasks: Union[pipette.pipette.Task, Iterable[pipette.pipette.Task]]</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/pipette/pipette.html#to_graphviz"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.to_graphviz" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">pipette.pipette.</code><code class="descname">to_graphviz</code><span class="sig-paren">(</span><em>task_or_tasks: Union[pipette.pipette.Task, Iterable[pipette.pipette.Task]]</em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.to_graphviz" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the complete task graph, in Dot format, ready for Graphviz.</p>
 <p>You can paste the results into <a class="reference external" href="http://www.webgraphviz.com">http://www.webgraphviz.com</a> to see the graph in rendered
 form.</p>
@@ -325,7 +354,7 @@ form.</p>
 
 <dl class="function">
 <dt id="pipette.pipette.to_commands">
-<code class="descclassname">pipette.pipette.</code><code class="descname">to_commands</code><span class="sig-paren">(</span><em>task_or_tasks: Union[pipette.pipette.Task, List[pipette.pipette.Task]], *, only_runnable_now: bool = False</em><span class="sig-paren">)</span> &#x2192; Iterable[str]<a class="reference internal" href="_modules/pipette/pipette.html#to_commands"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.to_commands" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">pipette.pipette.</code><code class="descname">to_commands</code><span class="sig-paren">(</span><em>task_or_tasks: Union[pipette.pipette.Task, List[pipette.pipette.Task]], *, only_runnable_now: bool = False</em><span class="sig-paren">)</span> &#x2192; Iterable[str]<a class="headerlink" href="#pipette.pipette.to_commands" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of tasks in a form that can be copy-and-pasted onto a command line.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">only_runnable_now</span></code> is True, this only returns tasks where all their dependencies are
 satisfied.</p>
@@ -333,13 +362,13 @@ satisfied.</p>
 
 <dl class="function">
 <dt id="pipette.pipette.runnable_commands">
-<code class="descclassname">pipette.pipette.</code><code class="descname">runnable_commands</code><span class="sig-paren">(</span><em>task_or_tasks: Union[pipette.pipette.Task, Iterable[pipette.pipette.Task]]</em><span class="sig-paren">)</span> &#x2192; Iterable[str]<a class="reference internal" href="_modules/pipette/pipette.html#runnable_commands"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.runnable_commands" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">pipette.pipette.</code><code class="descname">runnable_commands</code><span class="sig-paren">(</span><em>task_or_tasks: Union[pipette.pipette.Task, Iterable[pipette.pipette.Task]]</em><span class="sig-paren">)</span> &#x2192; Iterable[str]<a class="headerlink" href="#pipette.pipette.runnable_commands" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of tasks in a form that can be copy-and-pasted onto a command line.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="pipette.pipette.main">
-<code class="descclassname">pipette.pipette.</code><code class="descname">main</code><span class="sig-paren">(</span><em>args: List[str], tasks: Union[pipette.pipette.Task, List[pipette.pipette.Task], None] = None</em><span class="sig-paren">)</span> &#x2192; int<a class="reference internal" href="_modules/pipette/pipette.html#main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.main" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">pipette.pipette.</code><code class="descname">main</code><span class="sig-paren">(</span><em>args: List[str], tasks: Union[pipette.pipette.Task, List[pipette.pipette.Task], None] = None</em><span class="sig-paren">)</span> &#x2192; int<a class="headerlink" href="#pipette.pipette.main" title="Permalink to this definition">¶</a></dt>
 <dd><p>A main function that can operate on lists of tasks.</p>
 <p>There are two uses for this. One is as a standalone program, which lets you do things like:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">pipette</span> <span class="n">run</span> <span class="s2">&quot;tests.premierleague.PredictNextChampion-002arsenal(eNprYI4QYGBgMCu3sMg3rqjKNzVISjbJrihkqC1k1IhgBEolFTK529966L5OpOphBB9QID0_Mac4viC1KL4kNTG3kNmbMTBCGyjuDhIPSC0KAYrqGhgYpmUWFZfo5iQVVeZkF5uU5uYUp5unFuhlFefnFbIkF2QWpJaUpOpBaS4voLBbflFuYglXIatmYyFbWyF7YyFHBC_Q5PLMPCQLOUEWagGFw4HCGPZl5hSX56fkmZVlmhRmpGWaQ-zjygCax91YyFPaVsirBwA5FU99)&quot;</span>
@@ -356,24 +385,24 @@ your script:</p>
 
 <dl class="class">
 <dt id="pipette.pipette.Store">
-<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">Store</code><a class="reference internal" href="_modules/pipette/pipette.html#Store"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Store" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">Store</code><a class="headerlink" href="#pipette.pipette.Store" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A key/value store that Pipette uses to store the results from Tasks.</p>
 <dl class="method">
 <dt id="pipette.pipette.Store.exists">
-<code class="descname">exists</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/pipette/pipette.html#Store.exists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Store.exists" title="Permalink to this definition">¶</a></dt>
+<code class="descname">exists</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#pipette.pipette.Store.exists" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns True if the given result already exists in the store.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.Store.id">
-<code class="descname">id</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/pipette/pipette.html#Store.id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Store.id" title="Permalink to this definition">¶</a></dt>
+<code class="descname">id</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.Store.id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Every store has an id. It is unique string that helps recognize when the store changes.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.Store.locked">
-<code class="descname">locked</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/pipette/pipette.html#Store.locked"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Store.locked" title="Permalink to this definition">¶</a></dt>
+<code class="descname">locked</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#pipette.pipette.Store.locked" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns True if the given result is locked in the store.</p>
 <p>Results get locked when a task starts working on them, but is not yet
 complete. This prevents multiple processes from working on the same task
@@ -382,19 +411,19 @@ at the same time, and overwriting each other’s results.</p>
 
 <dl class="method">
 <dt id="pipette.pipette.Store.read">
-<code class="descname">read</code><span class="sig-paren">(</span><em>name: str</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="_modules/pipette/pipette.html#Store.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Store.read" title="Permalink to this definition">¶</a></dt>
+<code class="descname">read</code><span class="sig-paren">(</span><em>name: str</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span> &#x2192; Any<a class="headerlink" href="#pipette.pipette.Store.read" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reads a result from the store.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.Store.url_for_name">
-<code class="descname">url_for_name</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/pipette/pipette.html#Store.url_for_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Store.url_for_name" title="Permalink to this definition">¶</a></dt>
+<code class="descname">url_for_name</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.Store.url_for_name" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a copy-and-paste worthy URL for the result with the given name.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.Store.write">
-<code class="descname">write</code><span class="sig-paren">(</span><em>name: str</em>, <em>content: Any</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/pipette/pipette.html#Store.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Store.write" title="Permalink to this definition">¶</a></dt>
+<code class="descname">write</code><span class="sig-paren">(</span><em>name: str</em>, <em>content: Any</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#pipette.pipette.Store.write" title="Permalink to this definition">¶</a></dt>
 <dd><p>Writes a result to the store.</p>
 <p>While the writing is going on, this locks the results it is writing to,
 so that no other task writes to the same result at the same time.</p>
@@ -404,7 +433,7 @@ so that no other task writes to the same result at the same time.</p>
 
 <dl class="class">
 <dt id="pipette.pipette.LocalStore">
-<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">LocalStore</code><span class="sig-paren">(</span><em>base_path: Union[str, pathlib.Path]</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pipette/pipette.html#LocalStore"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.LocalStore" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">LocalStore</code><span class="sig-paren">(</span><em>base_path: Union[str, pathlib.Path]</em><span class="sig-paren">)</span><a class="headerlink" href="#pipette.pipette.LocalStore" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#pipette.pipette.Store" title="pipette.pipette.Store"><code class="xref py py-class docutils literal notranslate"><span class="pre">pipette.pipette.Store</span></code></a></p>
 <p>A store that stores the files in a local filesystem.</p>
 <p>This is particularly effective when the local filesystem is NFS-mounted and
@@ -413,19 +442,19 @@ available from multiple machines.</p>
 all use the same directory.</p>
 <dl class="method">
 <dt id="pipette.pipette.LocalStore.exists">
-<code class="descname">exists</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/pipette/pipette.html#LocalStore.exists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.LocalStore.exists" title="Permalink to this definition">¶</a></dt>
+<code class="descname">exists</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#pipette.pipette.LocalStore.exists" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns True if the given result already exists in the store.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.LocalStore.id">
-<code class="descname">id</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/pipette/pipette.html#LocalStore.id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.LocalStore.id" title="Permalink to this definition">¶</a></dt>
+<code class="descname">id</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.LocalStore.id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Every store has an id. It is unique string that helps recognize when the store changes.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.LocalStore.locked">
-<code class="descname">locked</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/pipette/pipette.html#LocalStore.locked"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.LocalStore.locked" title="Permalink to this definition">¶</a></dt>
+<code class="descname">locked</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#pipette.pipette.LocalStore.locked" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns True if the given result is locked in the store.</p>
 <p>Results get locked when a task starts working on them, but is not yet
 complete. This prevents multiple processes from working on the same task
@@ -434,19 +463,19 @@ at the same time, and overwriting each other’s results.</p>
 
 <dl class="method">
 <dt id="pipette.pipette.LocalStore.read">
-<code class="descname">read</code><span class="sig-paren">(</span><em>name: str</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="_modules/pipette/pipette.html#LocalStore.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.LocalStore.read" title="Permalink to this definition">¶</a></dt>
+<code class="descname">read</code><span class="sig-paren">(</span><em>name: str</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span> &#x2192; Any<a class="headerlink" href="#pipette.pipette.LocalStore.read" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reads a result from the store.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.LocalStore.url_for_name">
-<code class="descname">url_for_name</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/pipette/pipette.html#LocalStore.url_for_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.LocalStore.url_for_name" title="Permalink to this definition">¶</a></dt>
+<code class="descname">url_for_name</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.LocalStore.url_for_name" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a copy-and-paste worthy URL for the result with the given name.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.LocalStore.write">
-<code class="descname">write</code><span class="sig-paren">(</span><em>name: str</em>, <em>content: Any</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/pipette/pipette.html#LocalStore.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.LocalStore.write" title="Permalink to this definition">¶</a></dt>
+<code class="descname">write</code><span class="sig-paren">(</span><em>name: str</em>, <em>content: Any</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#pipette.pipette.LocalStore.write" title="Permalink to this definition">¶</a></dt>
 <dd><p>Writes a result to the store.</p>
 <p>While the writing is going on, this locks the results it is writing to,
 so that no other task writes to the same result at the same time.</p>
@@ -456,7 +485,7 @@ so that no other task writes to the same result at the same time.</p>
 
 <dl class="class">
 <dt id="pipette.pipette.BeakerStore">
-<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">BeakerStore</code><span class="sig-paren">(</span><em>local_cache_path: Union[None</em>, <em>str</em>, <em>pathlib.Path] = None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pipette/pipette.html#BeakerStore"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.BeakerStore" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">BeakerStore</code><span class="sig-paren">(</span><em>local_cache_path: Union[None</em>, <em>str</em>, <em>pathlib.Path] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#pipette.pipette.BeakerStore" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#pipette.pipette.Store" title="pipette.pipette.Store"><code class="xref py py-class docutils literal notranslate"><span class="pre">pipette.pipette.Store</span></code></a></p>
 <p>A store that stores results in Beaker.</p>
 <p>For this to work, the beaker command line tool needs to be on the path.</p>
@@ -469,19 +498,19 @@ the storage location for LocalStore. I don’t know what happens when you do
 that.</p>
 <dl class="method">
 <dt id="pipette.pipette.BeakerStore.exists">
-<code class="descname">exists</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/pipette/pipette.html#BeakerStore.exists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.BeakerStore.exists" title="Permalink to this definition">¶</a></dt>
+<code class="descname">exists</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#pipette.pipette.BeakerStore.exists" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns True if the given result already exists in the store.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.BeakerStore.id">
-<code class="descname">id</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/pipette/pipette.html#BeakerStore.id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.BeakerStore.id" title="Permalink to this definition">¶</a></dt>
+<code class="descname">id</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.BeakerStore.id" title="Permalink to this definition">¶</a></dt>
 <dd><p>There is only one beaker, so this always returns the same id.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.BeakerStore.locked">
-<code class="descname">locked</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="reference internal" href="_modules/pipette/pipette.html#BeakerStore.locked"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.BeakerStore.locked" title="Permalink to this definition">¶</a></dt>
+<code class="descname">locked</code><span class="sig-paren">(</span><em>name: str</em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#pipette.pipette.BeakerStore.locked" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns True if the given result is locked in the store.</p>
 <p>Results get locked when a task starts working on them, but is not yet
 complete. This prevents multiple processes from working on the same task
@@ -490,13 +519,13 @@ at the same time, and overwriting each other’s results.</p>
 
 <dl class="method">
 <dt id="pipette.pipette.BeakerStore.read">
-<code class="descname">read</code><span class="sig-paren">(</span><em>name: str</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="_modules/pipette/pipette.html#BeakerStore.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.BeakerStore.read" title="Permalink to this definition">¶</a></dt>
+<code class="descname">read</code><span class="sig-paren">(</span><em>name: str</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span> &#x2192; Any<a class="headerlink" href="#pipette.pipette.BeakerStore.read" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reads a result from the store.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.BeakerStore.write">
-<code class="descname">write</code><span class="sig-paren">(</span><em>name: str</em>, <em>content: Any</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pipette/pipette.html#BeakerStore.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.BeakerStore.write" title="Permalink to this definition">¶</a></dt>
+<code class="descname">write</code><span class="sig-paren">(</span><em>name: str</em>, <em>content: Any</em>, <em>format: pipette.pipette.Format = &lt;pipette.pipette.DillFormat object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#pipette.pipette.BeakerStore.write" title="Permalink to this definition">¶</a></dt>
 <dd><p>Writes a result to the store.</p>
 <p>While the writing is going on, this locks the results it is writing to,
 so that no other task writes to the same result at the same time.</p>
@@ -506,7 +535,7 @@ so that no other task writes to the same result at the same time.</p>
 
 <dl class="class">
 <dt id="pipette.pipette.Format">
-<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">Format</code><a class="reference internal" href="_modules/pipette/pipette.html#Format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Format" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">Format</code><a class="headerlink" href="#pipette.pipette.Format" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">typing.Generic</span></code></p>
 <p>Base class for file formats.</p>
 <p>To implement, override SUFFIX, read(), and write(). Formats are usually
@@ -518,13 +547,13 @@ singleton classes, and are instantiated right here in the module.</p>
 
 <dl class="method">
 <dt id="pipette.pipette.Format.read">
-<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; T<a class="reference internal" href="_modules/pipette/pipette.html#Format.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Format.read" title="Permalink to this definition">¶</a></dt>
+<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; T<a class="headerlink" href="#pipette.pipette.Format.read" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reads input, parses it, and returns it.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.Format.write">
-<code class="descname">write</code><span class="sig-paren">(</span><em>input: T</em>, <em>output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/pipette/pipette.html#Format.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.Format.write" title="Permalink to this definition">¶</a></dt>
+<code class="descname">write</code><span class="sig-paren">(</span><em>input: T</em>, <em>output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#pipette.pipette.Format.write" title="Permalink to this definition">¶</a></dt>
 <dd><p>Writes the given input out to disk.</p>
 </dd></dl>
 
@@ -532,7 +561,7 @@ singleton classes, and are instantiated right here in the module.</p>
 
 <dl class="class">
 <dt id="pipette.pipette.DillFormat">
-<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">DillFormat</code><a class="reference internal" href="_modules/pipette/pipette.html#DillFormat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.DillFormat" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">DillFormat</code><a class="headerlink" href="#pipette.pipette.DillFormat" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#pipette.pipette.Format" title="pipette.pipette.Format"><code class="xref py py-class docutils literal notranslate"><span class="pre">pipette.pipette.Format</span></code></a></p>
 <p>A format that uses dill to serialize arbitrary Python objects.</p>
 <p>This format has special handling for iterable types. It takes care not to
@@ -545,13 +574,36 @@ read the entire iterable into memory during either reading or writing.</p>
 
 <dl class="method">
 <dt id="pipette.pipette.DillFormat.read">
-<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="_modules/pipette/pipette.html#DillFormat.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.DillFormat.read" title="Permalink to this definition">¶</a></dt>
+<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Any<a class="headerlink" href="#pipette.pipette.DillFormat.read" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reads input, parses it, and returns it.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.DillFormat.write">
-<code class="descname">write</code><span class="sig-paren">(</span><em>input: Any</em>, <em>output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/pipette/pipette.html#DillFormat.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.DillFormat.write" title="Permalink to this definition">¶</a></dt>
+<code class="descname">write</code><span class="sig-paren">(</span><em>input: Any</em>, <em>output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#pipette.pipette.DillFormat.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Writes the given input out to disk.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="pipette.pipette.DillIterableFormat">
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">DillIterableFormat</code><a class="headerlink" href="#pipette.pipette.DillIterableFormat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pipette.pipette.Format" title="pipette.pipette.Format"><code class="xref py py-class docutils literal notranslate"><span class="pre">pipette.pipette.Format</span></code></a></p>
+<dl class="attribute">
+<dt id="pipette.pipette.DillIterableFormat.SUFFIX">
+<code class="descname">SUFFIX</code><em class="property"> = '.dill'</em><a class="headerlink" href="#pipette.pipette.DillIterableFormat.SUFFIX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pipette.pipette.DillIterableFormat.read">
+<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Iterable[Any]<a class="headerlink" href="#pipette.pipette.DillIterableFormat.read" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reads input, parses it, and returns it.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pipette.pipette.DillIterableFormat.write">
+<code class="descname">write</code><span class="sig-paren">(</span><em>input: Iterable[Any], output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#pipette.pipette.DillIterableFormat.write" title="Permalink to this definition">¶</a></dt>
 <dd><p>Writes the given input out to disk.</p>
 </dd></dl>
 
@@ -559,7 +611,7 @@ read the entire iterable into memory during either reading or writing.</p>
 
 <dl class="class">
 <dt id="pipette.pipette.JsonFormat">
-<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">JsonFormat</code><a class="reference internal" href="_modules/pipette/pipette.html#JsonFormat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.JsonFormat" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">JsonFormat</code><a class="headerlink" href="#pipette.pipette.JsonFormat" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#pipette.pipette.Format" title="pipette.pipette.Format"><code class="xref py py-class docutils literal notranslate"><span class="pre">pipette.pipette.Format</span></code></a></p>
 <p>A format that serializes Python object with JSON.</p>
 <p>If you are looking to serialize lists of things, you probably want
@@ -572,13 +624,13 @@ JsonlFormat or JsonlGzFormat.</p>
 
 <dl class="method">
 <dt id="pipette.pipette.JsonFormat.read">
-<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Any<a class="reference internal" href="_modules/pipette/pipette.html#JsonFormat.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.JsonFormat.read" title="Permalink to this definition">¶</a></dt>
+<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Any<a class="headerlink" href="#pipette.pipette.JsonFormat.read" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reads input, parses it, and returns it.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.JsonFormat.write">
-<code class="descname">write</code><span class="sig-paren">(</span><em>input: Any</em>, <em>output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/pipette/pipette.html#JsonFormat.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.JsonFormat.write" title="Permalink to this definition">¶</a></dt>
+<code class="descname">write</code><span class="sig-paren">(</span><em>input: Any</em>, <em>output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#pipette.pipette.JsonFormat.write" title="Permalink to this definition">¶</a></dt>
 <dd><p>Writes the given input out to disk.</p>
 </dd></dl>
 
@@ -586,7 +638,7 @@ JsonlFormat or JsonlGzFormat.</p>
 
 <dl class="class">
 <dt id="pipette.pipette.JsonlFormat">
-<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">JsonlFormat</code><a class="reference internal" href="_modules/pipette/pipette.html#JsonlFormat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.JsonlFormat" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">JsonlFormat</code><a class="headerlink" href="#pipette.pipette.JsonlFormat" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#pipette.pipette.Format" title="pipette.pipette.Format"><code class="xref py py-class docutils literal notranslate"><span class="pre">pipette.pipette.Format</span></code></a></p>
 <p>A format that serializes lists of Python objects to JSON, one line per item.</p>
 <p>To use this format, simply refer to <code class="docutils literal notranslate"><span class="pre">pipette.jsonlFormat</span></code>.</p>
@@ -597,13 +649,13 @@ JsonlFormat or JsonlGzFormat.</p>
 
 <dl class="method">
 <dt id="pipette.pipette.JsonlFormat.read">
-<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Iterable[Any]<a class="reference internal" href="_modules/pipette/pipette.html#JsonlFormat.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.JsonlFormat.read" title="Permalink to this definition">¶</a></dt>
+<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Iterable[Any]<a class="headerlink" href="#pipette.pipette.JsonlFormat.read" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reads input, parses it, and returns it.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.JsonlFormat.write">
-<code class="descname">write</code><span class="sig-paren">(</span><em>input: Iterable[Any], output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/pipette/pipette.html#JsonlFormat.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.JsonlFormat.write" title="Permalink to this definition">¶</a></dt>
+<code class="descname">write</code><span class="sig-paren">(</span><em>input: Iterable[Any], output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#pipette.pipette.JsonlFormat.write" title="Permalink to this definition">¶</a></dt>
 <dd><p>Writes the given input out to disk.</p>
 </dd></dl>
 
@@ -611,10 +663,8 @@ JsonlFormat or JsonlGzFormat.</p>
 
 <dl class="class">
 <dt id="pipette.pipette.JsonlGzFormat">
-<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">JsonlGzFormat</code><a class="reference internal" href="_modules/pipette/pipette.html#JsonlGzFormat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.JsonlGzFormat" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">pipette.pipette.</code><code class="descname">JsonlGzFormat</code><a class="headerlink" href="#pipette.pipette.JsonlGzFormat" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#pipette.pipette.Format" title="pipette.pipette.Format"><code class="xref py py-class docutils literal notranslate"><span class="pre">pipette.pipette.Format</span></code></a></p>
-<p>A format that serializes lists of Python objects to JSON, one line per item, and compresses the file.</p>
-<p>To use this format, simply refer to <code class="docutils literal notranslate"><span class="pre">pipette.jsonlGzFormat</span></code>.</p>
 <dl class="attribute">
 <dt id="pipette.pipette.JsonlGzFormat.SUFFIX">
 <code class="descname">SUFFIX</code><em class="property"> = '.jsonl.gz'</em><a class="headerlink" href="#pipette.pipette.JsonlGzFormat.SUFFIX" title="Permalink to this definition">¶</a></dt>
@@ -622,13 +672,13 @@ JsonlFormat or JsonlGzFormat.</p>
 
 <dl class="method">
 <dt id="pipette.pipette.JsonlGzFormat.read">
-<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Iterable[Any]<a class="reference internal" href="_modules/pipette/pipette.html#JsonlGzFormat.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.JsonlGzFormat.read" title="Permalink to this definition">¶</a></dt>
+<code class="descname">read</code><span class="sig-paren">(</span><em>input: BinaryIO</em><span class="sig-paren">)</span> &#x2192; Iterable[Any]<a class="headerlink" href="#pipette.pipette.JsonlGzFormat.read" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reads input, parses it, and returns it.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="pipette.pipette.JsonlGzFormat.write">
-<code class="descname">write</code><span class="sig-paren">(</span><em>input: Iterable[Any], output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/pipette/pipette.html#JsonlGzFormat.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.JsonlGzFormat.write" title="Permalink to this definition">¶</a></dt>
+<code class="descname">write</code><span class="sig-paren">(</span><em>input: Iterable[Any], output: BinaryIO</em><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#pipette.pipette.JsonlGzFormat.write" title="Permalink to this definition">¶</a></dt>
 <dd><p>Writes the given input out to disk.</p>
 </dd></dl>
 
@@ -636,7 +686,7 @@ JsonlFormat or JsonlGzFormat.</p>
 
 <dl class="function">
 <dt id="pipette.pipette.random_string">
-<code class="descclassname">pipette.pipette.</code><code class="descname">random_string</code><span class="sig-paren">(</span><em>length: int = 16</em><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/pipette/pipette.html#random_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pipette.pipette.random_string" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">pipette.pipette.</code><code class="descname">random_string</code><span class="sig-paren">(</span><em>length: int = 16</em><span class="sig-paren">)</span> &#x2192; str<a class="headerlink" href="#pipette.pipette.random_string" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a random string of readable characters.</p>
 </dd></dl>
 
