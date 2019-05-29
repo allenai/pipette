@@ -46,6 +46,20 @@ class Format(Generic[T]):
         """Writes the given input out to disk."""
         raise NotImplementedError()
 
+import gzip
+class GzFormat(Format[Any]):
+    def __init__(self, inner_format: Format):
+        self.inner_format = inner_format
+        self.SUFFIX = inner_format.SUFFIX + ".gz"
+
+    def read(self, input: BinaryIO):
+        input = gzip.GzipFile(mode="rb", fileobj=input)
+        return self.inner_format.read(input)
+
+    def write(self, input: Any, output: BinaryIO):
+        output = gzip.GzipFile(mode="wb", fileobj=output)
+        self.inner_format.write(input, output)
+
 class DillFormat(Format[Any]):
     """A format that uses dill to serialize arbitrary Python objects.
 
@@ -63,7 +77,7 @@ class DillFormat(Format[Any]):
         dill.dump(input, output)
 
 dillFormat = DillFormat()
-
+dillGzFormat = GzFormat(dillFormat)
 
 class DillIterableFormat(Format[Iterable[Any]]):
     SUFFIX = ".dill"
@@ -80,21 +94,6 @@ class DillIterableFormat(Format[Iterable[Any]]):
             dill.dump(item, output)
 
 dillIterableFormat = DillIterableFormat()
-
-class GzFormat(Format[Any]):
-    def __init__(self, inner_format: Format):
-        self.inner_format = inner_format
-        self.SUFFIX = inner_format.SUFFIX + ".gz"
-
-    def read(self, input: BinaryIO):
-        input = gzip.GzipFile(mode="rb", fileobj=input)
-        return self.inner_format.read(input)
-
-    def write(self, input: Any, output: BinaryIO):
-        output = gzip.GzipFile(mode="wb", fileobj=output)
-        self.inner_format.write(input, output)
-
-dillGzFormat = GzFormat(dillFormat)
 dillIterableGzFormat = GzFormat(dillIterableFormat)
 
 import json
@@ -118,6 +117,7 @@ class JsonFormat(Format[Any]):
         json.dump(input, output)
 
 jsonFormat = JsonFormat()
+jsonGzFormat = GzFormat(jsonFormat)
 
 class JsonlFormat(Format[Iterable[Any]]):
     """A format that serializes lists of Python objects to JSON, one line per item.
@@ -138,44 +138,7 @@ class JsonlFormat(Format[Iterable[Any]]):
             output.flush()
 
 jsonlFormat = JsonlFormat()
-
-import gzip
-class JsonGzFormat(Format[Any]):
-    """A format that serializes lists of Python objects to JSON, one line per item, and compresses the file.
-
-    To use this format, simply refer to ``pipette.jsonlGzFormat``.
-    """
-    SUFFIX = ".json.gz"
-
-    def read(self, input: BinaryIO) -> Any:
-        input = gzip.GzipFile(mode="rb", fileobj=input)
-        input = io.TextIOWrapper(input, encoding="UTF-8")
-        return json.load(input)
-
-    def write(self, input: Any, output: BinaryIO) -> None:
-        output = gzip.GzipFile(mode="wb", fileobj=output)
-        output = io.TextIOWrapper(output, encoding="UTF-8")
-        json.dump(input, output)
-
-jsonGzFormat = JsonGzFormat()
-
-class JsonlGzFormat(Format[Iterable[Any]]):
-    SUFFIX = ".jsonl.gz"
-
-    def read(self, input: BinaryIO) -> Iterable[Any]:
-        uncompressed = gzip.GzipFile(mode="rb", fileobj=input)
-        for line in io.TextIOWrapper(uncompressed, encoding="UTF-8"):
-            yield json.loads(line)
-
-    def write(self, input: Iterable[Any], output: BinaryIO) -> None:
-        output = gzip.GzipFile(mode="wb", fileobj=output)
-        output = io.TextIOWrapper(output, encoding="UTF-8")
-        for item in input:
-            output.write(json.dumps(item))
-            output.write("\n")
-            output.flush()
-
-jsonlGzFormat = JsonlGzFormat()
+jsonlGzFormat = GzFormat(jsonlFormat)
 
 class TsvFormat(Format[Iterable[List[str]]]):
     SUFFIX = ".tsv"
@@ -1220,13 +1183,18 @@ __all__ = [
     "Format",
     "DillFormat",
     "dillFormat",
+    "dillGzFormat",
     "DillIterableFormat",
     "dillIterableFormat",
+    "dillIterableGzFormat",
     "JsonFormat",
     "jsonFormat",
+    "jsonGzFormat",
     "JsonlFormat",
     "jsonlFormat",
-    "JsonlGzFormat",
     "jsonlGzFormat",
+    "TsvFormat",
+    "tsvFormat",
+    "tsvGzFormat",
     "random_string"
 ]
