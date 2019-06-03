@@ -591,6 +591,13 @@ class Task(Generic[O]):
       * ``pipette.dillFormat`` for arbitrary Python objects
     """
 
+    CACHE_RESULTS: bool = True
+    """If this is set to False, pipette will never cache the results of this step. That might be
+    useful for debugging, or for steps that run quickly.
+    
+    Of course, the whole point of pipette is to cache results, so I don't expect this to be used
+    much."""
+
     def __init__(self, **kwargs):
         assert _version_tag_re.match(self.VERSION_TAG), f"Invalid version tag '{self.VERSION_TAG}'"
 
@@ -674,7 +681,7 @@ class Task(Generic[O]):
         This also runs all tasks that this task depends on, and caches all results, including the
         result from this task itself."""
         output_name = self.output_name()
-        if self.store.exists(output_name):
+        if self.CACHE_RESULTS and self.store.exists(output_name):
             _logger.info(f"Reading {self.output_name()} with the following inputs:\n{self.printable_inputs()}")
             return self.store.read(output_name, self.OUTPUT_FORMAT)
 
@@ -695,24 +702,25 @@ class Task(Generic[O]):
 
         _logger.info(f"Computing {self.output_name()} with the following inputs:\n{self.printable_inputs()}")
         result = self.do(**inputs)
-        _logger.info(f"Writing {self.output_name()}")
-        self.store.write(output_name, result, self.OUTPUT_FORMAT)
+        if self.CACHE_RESULTS:
+            _logger.info(f"Writing {self.output_name()}")
+            self.store.write(output_name, result, self.OUTPUT_FORMAT)
 
-        if hasattr(result, "__next__"):
-            # If we just wrote a generator-like function to disk, we need to re-read it.
-            return self.store.read(output_name, self.OUTPUT_FORMAT)
-        else:
-            return result
+            if hasattr(result, "__next__"):
+                # If we just wrote a generator-like function to disk, we need to re-read it.
+                return self.store.read(output_name, self.OUTPUT_FORMAT)
+
+        return result
 
     def output_exists(self) -> bool:
         """Returns whether or not the output for this task already exists."""
-        return self.store.exists(self.output_name())
+        return self.CACHE_RESULTS and self.store.exists(self.output_name())
 
     def output_locked(self) -> bool:
         """Returns whether or not the output for this task is locked.
 
         Outputs should only be locked while a process is working on producing this output."""
-        return self.store.locked(self.output_name())
+        return self.CACHE_RESULTS and self.store.locked(self.output_name())
 
     @staticmethod
     def hash_object(o: Any) -> str:
@@ -1156,8 +1164,12 @@ def main(args: List[str], tasks: Optional[Union[Task, List[Task]]] = None) -> in
                 print(task.output_name() + suffix)
     elif args.command == "run":
         for task in tasks:
-            task.results()
-            print(task.output_url())
+            results = task.results()
+            if task.CACHE_RESULTS:
+                print(task.output_url())
+            else:
+                _logger.info("Task %s does not write results to disk, so we're writing them to stdout instead.", task.output_name())
+                print(repr(results))
     elif args.command == "info":
         for task in sort_tasks(task_name_to_task.values()):
             print(f"Task {task.output_name()} has the following inputs:")

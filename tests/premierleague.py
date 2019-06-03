@@ -107,6 +107,7 @@ class PredictNextChampion(pipette.Task[str]):
         "b": 0.37
     }
     OUTPUT_FORMAT = pipette.jsonFormat
+    CACHE_RESULTS = False   # for debugging, we disable caching
 
     def do(self, goals_per_team: Dict[str, int], wins_per_team: Dict[str, int], b: float):
         results = []
