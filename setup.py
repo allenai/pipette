@@ -11,7 +11,8 @@ setup(
   install_requires=[
     'dill',
     'mmh3',
-    'typeguard'
+    'typeguard',
+    'regex>=2019.06.02'
   ],
   python_requires='>=3.6'
 )
