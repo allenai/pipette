@@ -182,6 +182,15 @@ straight.</p>
 </pre></div>
 </div>
 <dl class="attribute">
+<dt id="pipette.pipette.Task.CACHE_RESULTS">
+<code class="descname">CACHE_RESULTS</code><em class="property"> = True</em><a class="headerlink" href="#pipette.pipette.Task.CACHE_RESULTS" title="Permalink to this definition">¶</a></dt>
+<dd><p>If this is set to False, pipette will never cache the results of this step. That might be
+useful for debugging, or for steps that run quickly.</p>
+<p>Of course, the whole point of pipette is to cache results, so I don’t expect this to be used
+much.</p>
+</dd></dl>
+
+<dl class="attribute">
 <dt id="pipette.pipette.Task.DEFAULTS">
 <code class="descname">DEFAULTS</code><em class="property"> = {}</em><a class="headerlink" href="#pipette.pipette.Task.DEFAULTS" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies the defaults for input parameters for this task.</p>
