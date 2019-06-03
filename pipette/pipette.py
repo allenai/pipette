@@ -1033,7 +1033,7 @@ def sort_tasks(tasks: Iterable[Task]) -> List[Task]:
         for doing_task_name in todo_task_names:
             dependencies = {
                 dt.output_name()
-                for dts in task_name_to_task[doing_task_name].incomplete_dependencies().values()
+                for dts in task_name_to_task[doing_task_name].dependencies().values()
                 for dt in dts
                 if dt.output_name() not in done_task_names
             }
