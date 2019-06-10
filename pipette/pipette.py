@@ -38,6 +38,10 @@ class Format(Generic[T]):
 
     SUFFIX = NotImplemented
 
+    def __init__(self):
+        if self.SUFFIX == NotImplemented:
+            raise NotImplementedError(f"You must specify a SUFFIX in {self.__class__.__name__}.")
+
     def read(self, input: BinaryIO) -> T:
         """Reads input, parses it, and returns it."""
         raise NotImplementedError()
@@ -51,6 +55,7 @@ class GzFormat(Format[Any]):
     def __init__(self, inner_format: Format):
         self.inner_format = inner_format
         self.SUFFIX = inner_format.SUFFIX + ".gz"
+        super(GzFormat, self).__init__()
 
     def read(self, input: BinaryIO):
         input = gzip.GzipFile(mode="rb", fileobj=input)
