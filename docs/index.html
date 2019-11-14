@@ -220,6 +220,18 @@ much.</p>
 </dd></dl>
 
 <dl class="attribute">
+<dt id="pipette.pipette.Task.NO_HASH_INPUTS">
+<code class="descname">NO_HASH_INPUTS</code><em class="property"> = {}</em><a class="headerlink" href="#pipette.pipette.Task.NO_HASH_INPUTS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specifies the names of inputs that, when set to the values given here, are not used to
+compute the unique name for the output.</p>
+<p>This is useful when you want to add a parameter, but you don’t want to invalidate existing
+output that you created when you didn’t have that parameter yet.</p>
+<p>Note that the value for this can be different from the value in <code class="docutils literal notranslate"><span class="pre">DEFAULTS</span></code>. You can always
+change the values in <code class="docutils literal notranslate"><span class="pre">DEFAULTS</span></code>, but you can never change the values in <code class="docutils literal notranslate"><span class="pre">NO_HASH_INPUTS</span></code>.
+You can only add new values to <code class="docutils literal notranslate"><span class="pre">NO_HASH_INPUTS</span></code>.</p>
+</dd></dl>
+
+<dl class="attribute">
 <dt id="pipette.pipette.Task.OUTPUT_FORMAT">
 <code class="descname">OUTPUT_FORMAT</code><em class="property"> = &lt;pipette.pipette.DillFormat object&gt;</em><a class="headerlink" href="#pipette.pipette.Task.OUTPUT_FORMAT" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies the output format of the results of this task.</p>
