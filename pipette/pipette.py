@@ -587,6 +587,18 @@ class Task(Generic[O]):
         }
     """
 
+    NO_HASH_INPUTS: Dict[str, Any] = {}
+    """Specifies the names of inputs that, when set to the values given here, are not used to
+    compute the unique name for the output.
+    
+    This is useful when you want to add a parameter, but you don't want to invalidate existing
+    output that you created when you didn't have that parameter yet.
+    
+    Note that the value for this can be different from the value in ``DEFAULTS``. You can always
+    change the values in ``DEFAULTS``, but you can never change the values in ``NO_HASH_INPUTS``.
+    You can only add new values to ``NO_HASH_INPUTS``.
+    """
+
     OUTPUT_FORMAT: Format[O] = dillFormat   # Not the most efficient, but it can serialize almost anything. It's a good default.
     """Specifies the output format of the results of this task.
     
@@ -756,7 +768,14 @@ class Task(Generic[O]):
                     return {key : replace_tasks_with_hashes(value) for key, value in o.items()}
                 else:
                     return o
-            hash = self.hash_object(replace_tasks_with_hashes(self.inputs))
+            hash = replace_tasks_with_hashes(self.inputs)
+            no_hash_inputs = replace_tasks_with_hashes(self.NO_HASH_INPUTS)
+            hash = {
+                key : value
+                for key, value in hash.items()
+                if key not in no_hash_inputs or no_hash_inputs[key] != value
+            }
+            hash = self.hash_object(hash)
             self._cached_output_name = f"{self.__class__.__name__}-{self.VERSION_TAG}-{hash}{self.OUTPUT_FORMAT.SUFFIX}"
         return self._cached_output_name
 
