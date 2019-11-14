@@ -25,6 +25,9 @@ class ExtractMatches(pipette.Task[Iterable[Match]]):
         "csv_file_path": str
     }
 
+    # If the result of a task is an iterable, use an iterable format.
+    OUTPUT_FORMAT = pipette.dillIterableFormat
+
     def do(self, csv_file_path: str):
         home_team_column = None
         away_team_column = None
