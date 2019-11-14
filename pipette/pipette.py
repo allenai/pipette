@@ -573,6 +573,7 @@ class Task(Generic[O]):
             "matches": pipette.Task[Iterable[Match]]    # You can specify another task as an input like this.
         }
     """
+
     DEFAULTS: Dict[str, Any] = {}
     """Specifies the defaults for input parameters for this task.
     
