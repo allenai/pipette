@@ -63,6 +63,9 @@ class GoalsPerTeam(pipette.Task[Dict[str, int]]):
         # You could specify another task as a default argument, but we won't do that in the example.
         #"matches": SimplifyTask(csv_file_path="season-1819.csv")
     }
+    NO_HASH_INPUTS = {
+        "count_away_goals": False    # We added this parameter later, so we don't want it to affect the output name if it's set to this value.
+    }
 
     # The default serialization format uses dill, which can serialize almost anything, but is not
     # human readable. Often, I'd like my data to be human readable, so I choose jsonFormat, or
